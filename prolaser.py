@@ -113,8 +113,10 @@ def receive_message(port, expect=16, timeouts=5):
         buf = port.read(expect)
         if len(buf) != 0:
             for b in buf:
-                if len(msg) > 0 and msg[0] != 0x02:
+                # print('.{:02X}.'.format(b))
+                if len(msg) > 0 and msg[0] != 0x02 and b == 0x02:
                     msg.clear()
+                    msg.append(b)
                 else:
                     if b == 0x10:
                         if escaped:
@@ -131,16 +133,17 @@ def receive_message(port, expect=16, timeouts=5):
                             if b == 0x03:
                                 if len(msg) != expect:
                                     msg_len = msg[1] + 4
-                                    print('received {} but expected {}, message says {}'.format(len(msg), expect, msg_len))
-                                    print(buffer_to_hexes(msg))
+                                    print('   received {} but expected {}, message claims {} message {} '.format(len(msg), expect, msg_len, buffer_to_hexes(msg)))
+                                # print('   called with {} timeouts, {} left'.format(timeouts, timeouts_left))
                                 return msg
         else:
             timeouts_left -= 1
+            #print('   still listening... received {} {} wanted {} left'.format(len(msg), expect, timeouts_left))
+    print('   timed out! called with {} timeouts, {} left'.format(timeouts, timeouts_left))
     return msg
 
 
 def send_receive_command(port, cmd, expect=16, timeouts=1):
-    port.flush_read()  # throw away anything waiting.
     port.write(cmd)
     process_tx_buffer(de_escape_message(cmd))
     if expect > 0:
@@ -263,10 +266,10 @@ def process_rx_buffer(buffer):
         data = buffer[5]
         print('rx read ee address {:02x} data {:02x}'.format(addr, data))
         if eeprom_data[addr] == -1:
-            print('assigning eeprom address {} from {} to {}'.format(addr, eeprom_data[addr], data))
+            print('   assigning eeprom address {} from {} to {}'.format(addr, eeprom_data[addr], data))
             eeprom_data[addr] = data
         if eeprom_data[addr] != data:
-            print('updating  eeprom address {} from {} to {}'.format(addr, eeprom_data[addr], data))
+            print('   updating  eeprom address {} from {} to {}'.format(addr, eeprom_data[addr], data))
             eeprom_data[addr] = data
     elif command == 0x0c:
         sub_command = buffer[3]
@@ -310,9 +313,10 @@ def main():
     send_1_byte_command(port, CMD_TOGGLE_LASER, 0)
 
     print('listening...')
-    s = time.time() + 3
+    s = time.time() + 10
     while True:
-        msg = receive_message(port, expect=11, timeouts=5)
+        msg = receive_message(port, expect=11, timeouts=20)  # receive timeout at 20 ms, so <= 400 msec
+        # first one times out.
         if len(msg) > 0:
             process_rx_buffer(msg)
             # print(buffer_to_hexes(msg))
@@ -321,11 +325,7 @@ def main():
 
     print('turning laser off')
     # send fire laser toggle command 07
-    send_1_byte_command(port, CMD_TOGGLE_LASER, expect=11, timeouts=20)
-
-    msg = receive_message(port, expect=5, timeouts=20)
-    if msg is not None:
-        process_rx_buffer(msg)
+    send_1_byte_command(port, CMD_TOGGLE_LASER, timeouts=25)  # <= 500 msec
 
     print('done')
 

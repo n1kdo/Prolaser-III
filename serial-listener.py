@@ -35,6 +35,8 @@ Magic numbers and Escape codes:
 0x03 is an end of message character and must be escaped to be sent as any payload byte: 0x10 0x03
 0x10 itself must be escaped, to send 0x10 as part of the payload, send 0x10 0x10
 
+The escape code is not counted in the checksum calculation, but the escaped value _is_.
+
 The _payload_ of the message is in bytes 2:-2...
 assuming the first byte of the message is a command, then I have seen these
 

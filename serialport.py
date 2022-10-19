@@ -11,7 +11,7 @@ class SerialPort:
                                   parity=serial.PARITY_NONE,
                                   bytesize=serial.EIGHTBITS,
                                   stopbits=serial.STOPBITS_ONE,
-                                  timeout=0.05)
+                                  timeout=0.020)  # seems fully reliable at 20 ms.
 
     def close_port(self):
         self.port.close()
