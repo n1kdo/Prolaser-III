@@ -326,6 +326,7 @@ def main():
     print('turning laser off')
     # send fire laser toggle command 07
     send_1_byte_command(port, CMD_TOGGLE_LASER, timeouts=25)  # <= 500 msec
+    #send_1_byte_command(port, 0x01, timeouts=25)  # <= 500 msec
 
     print('done')
 

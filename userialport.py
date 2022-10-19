@@ -11,7 +11,7 @@ class SerialPort:
                          parity=None,
                          stop=1,
                          timeout=50,
-                         timeout_char=50,
+                         timeout_char=20,
                          tx=Pin(0),
                          rx=Pin(1))
 
@@ -20,6 +20,8 @@ class SerialPort:
 
     def write(self, buffer):
         self.port.write(bytes(buffer))
+        while not self.port.txdone():
+            pass  # spin while waiting for buffer to send
 
     def read(self, size=16):
         buffer = self.port.read(size)
