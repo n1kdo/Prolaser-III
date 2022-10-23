@@ -10,62 +10,10 @@ import sys
 import time
 
 from prolaser import dump_buffer, process_rx_buffer, process_tx_buffer, validate_checksum
+from prolaser_protocol import START_OF_MESSAGE, END_OF_MESSAGE, MESSAGE_ESCAPE
 
 BAUD_RATE = 19200
 eeprom_data = bytearray(256)
-log_all_rx = False
-
-
-"""
-Kustom Signals Prolaser III serial signal protocol analysis.
-
-Message format
-
-0x02 0x0n 0xqq ... 0xzz 0x03
-  ^    ^    ^        ^    ^
-  |    |    |        |    +--- always 0x03.  indicates end of message
-  |    |    |        +-------- checksum. sum of length byte and all data bytes.
-  |    |    +----------------- data byte/s. value included in checksum.  
-  |    +---------------------- number of bytes in message. value included in checksum.
-  +--------------------------- always 0x02.  indicates start of message.
-  
-Magic numbers and Escape codes:
-
-0x10 works as an escape character and causes the next character not to have its special meaning:
-0x03 is an end of message character and must be escaped to be sent as any payload byte: 0x10 0x03
-0x10 itself must be escaped, to send 0x10 as part of the payload, send 0x10 0x10
-
-The escape code is not counted in the checksum calculation, but the escaped value _is_.
-
-The _payload_ of the message is in bytes 2:-2...
-assuming the first byte of the message is a command, then I have seen these
-
-06: send 06, get 06 back.  appears to set remote control mode.
-0b: send 0b xx, get 0b 00 xx yy back.  Read location? xx in range 00-b6.
-01: send 01, get 01 back.  appears to exit remote control mode
-02: send 02 98 a0 ??? read RAM?
-0a: send 0a 00, get 0a 00 back  -- this appears to set speed mode. (payloads are 06 0b01 01, 0a00)
-    send 0a 03, get 0a 03 back  -- this appears to set range mode. (payloads are 06 0b01 01, 0a03)
-    send 0a 01, get 0a 01 back  -- this appears to set RTR mode. (payloads are 06 0b01 01, 0a01)
-
-07: automatic fire mode. send once to turn on, send again to turn off,  get 07 back on turn off
-    (payloads are 06 0b01 01 02 0ba3 0ba9 01 01 07 07)
-
-13: reset / self test?
-    
-manual fire button press 
-   sends 06 0b01 01 06 0ba3 0ba9 01
-   deselect sends nothing.
-    
-write eeprom:
-
-06 0b01 01 06 THEN...
-0c80xxyy gets back 0c00xx00 xx range from 00-b7
-THEN... 
-01 
-13 RESET
- 
-"""
 
 
 def main():
@@ -91,51 +39,45 @@ def main():
             while True:
                 buf = tx_port.read(32)
                 if buf is not None and len(buf) > 0:
+                    # dump_buffer('tx', buf, True)
                     for b in buf:
+                        tx_was_escaped = tx_escaped
                         if tx_escaped:
-                            print('tx escaped {:02x}'.format(b))
-                            tx_buffer.append(b)
                             tx_escaped = False
                         else:
-                            if b == 0x10:
+                            if b == MESSAGE_ESCAPE:
                                 tx_escaped = True
+                        if b == START_OF_MESSAGE and len(tx_buffer) > 0 and tx_buffer[0] != START_OF_MESSAGE:
+                            tx_buffer.clear()
+                        tx_buffer.append(b)
+                        if b == END_OF_MESSAGE and not tx_was_escaped:
+                            if validate_checksum('tx', tx_buffer):
+                                process_tx_buffer(tx_buffer)
                             else:
-                                if b == 0x02 and len(tx_buffer) > 0 and tx_buffer[0] != 0x02:
-                                    tx_buffer.clear()
-                                tx_buffer.append(b)
-                                if b == 0x03:
-                                    if validate_checksum(tx_buffer):
-                                        #dump_buffer('tx', tx_buffer)
-                                        process_tx_buffer(tx_buffer)
-                                    else:
-                                        dump_buffer('tx', tx_buffer, True)
-                                    tx_buffer.clear()
+                                dump_buffer('tx', tx_buffer, True)
+                            tx_buffer.clear()
                 else:
                     break
             while True:
                 buf = rx_port.read(32)
                 if buf is not None and len(buf) > 0:
+                    # dump_buffer('rx', buf, True)
                     for b in buf:
-                        if log_all_rx:
-                            print('{:02x} '.format(b), end='')
+                        rx_was_escaped = rx_escaped
                         if rx_escaped:
-                            # print('rx escaped {:02x}'.format(b))
-                            rx_buffer.append(b)
                             rx_escaped = False
                         else:
-                            if b == 0x10:
+                            if b == MESSAGE_ESCAPE:
                                 rx_escaped = True
+                        if b == START_OF_MESSAGE and len(rx_buffer) > 0 and rx_buffer[0] != START_OF_MESSAGE:
+                            rx_buffer.clear()
+                        rx_buffer.append(b)
+                        if b == END_OF_MESSAGE and not rx_was_escaped:
+                            if validate_checksum('rx', rx_buffer):
+                                process_rx_buffer(rx_buffer, verbosity=4)
                             else:
-                                if b == 0x02 and len(rx_buffer) > 0 and rx_buffer[0] != 0x02:
-                                    rx_buffer.clear()
-                                rx_buffer.append(b)
-                                if b == 0x03:
-                                    if validate_checksum(rx_buffer):
-                                        #dump_buffer('rx', rx_buffer)
-                                        process_rx_buffer(rx_buffer)
-                                    else:
-                                        dump_buffer('rx', rx_buffer, True)
-                                    rx_buffer.clear()
+                                dump_buffer('rx', rx_buffer, True)
+                            rx_buffer.clear()
                 else:
                     break
 
