@@ -9,10 +9,11 @@ import serial
 import sys
 import time
 
-from prolaser import dump_buffer, process_rx_buffer, process_tx_buffer, validate_checksum
+from buffer_utils import dump_buffer
+from prolaser_protocol import process_rx_buffer, process_tx_buffer, validate_checksum
 from prolaser_protocol import START_OF_MESSAGE, END_OF_MESSAGE, MESSAGE_ESCAPE
 
-BAUD_RATE = 19200
+BAUD_RATE = 19200  # note that this depends on the EEPROM programming
 eeprom_data = bytearray(256)
 
 

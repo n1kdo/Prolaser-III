@@ -24,19 +24,20 @@ The escape code is not counted in the checksum calculation, but the escaped valu
 The _payload_ of the message is in bytes 2:-2...
 assuming the first byte of the message is a command, then I have seen these
 
-06: send 06, get 06 back.  appears to set remote control mode.
-0b: send 0b xx, get 0b 00 xx yy back.  Read location? xx in range 00-b6.
 01: send 01, get 01 back.  appears to exit remote control mode
-02: send 02 98 a0 ??? read RAM?
+02: send 02 98 a0 ??? read RAM
+05: reply with init message
+06: send 06, get 06 back.  appears to enable remote control mode.
+07: automatic fire mode. send once to turn on, send again to turn off,  get 07 back on turn off
+    (payloads are 06 0b01 01 02 0ba3 0ba9 01 01 07 07)
 0a: send 0a 00, get 0a 00 back  -- this appears to set speed mode. (payloads are 06 0b01 01, 0a00)
     send 0a 03, get 0a 03 back  -- this appears to set range mode. (payloads are 06 0b01 01, 0a03)
     send 0a 01, get 0a 01 back  -- this appears to set RTR mode. (payloads are 06 0b01 01, 0a01)
-
-07: automatic fire mode. send once to turn on, send again to turn off,  get 07 back on turn off
-    (payloads are 06 0b01 01 02 0ba3 0ba9 01 01 07 07)
-
+0b: send 0b xx, get 0b 00 xx yy back.  Read eeprom. xx in range 00-b6.
+0c: write eeprom.
 13: reset / self test?
-
+18: distance reading
+19: message
 manual fire button press
    sends 06 0b01 01 06 0ba3 0ba9 01
    deselect sends nothing.
@@ -48,7 +49,6 @@ write eeprom:
 THEN...
 01
 13 RESET
-
 
 eeprom mapping
 
@@ -113,6 +113,9 @@ This appears to be a 16-bit value calculated by # feet * 0x64.  Hi byte in 0x18,
 0xb7: checksum of bytes 00-b6
 
 """
+import sys
+from buffer_utils import buffer_to_hexes, hexdump_buffer
+log_all_rx = False
 
 # message bytes
 START_OF_MESSAGE = 0x02
@@ -122,14 +125,16 @@ MESSAGE_ESCAPE = 0x10
 # command bytes
 CMD_EXIT_REMOTE = 0x01
 CMD_READ_RAM = 0x02
+CMD_WHO_ARE_YOU = 0x05
 CMD_ENABLE_REMOTE = 0x06
 CMD_TOGGLE_LASER = 0x07
 CMD_SET_MODE = 0x0a
 CMD_READ_EEPROM = 0x0b
 CMD_WRITE_EEPROM = 0x0c
+CMD_INIT_SPD23 = 0x12
 CMD_RESET = 0x13
 CMD_READING = 0x18
-CMD_MESSAGE = 0x19
+CMD_INIT_SPD4 = 0x19
 
 # known command data bytes
 MODE_SPEED = 0x00
@@ -137,20 +142,19 @@ MODE_RANGE = 0x03
 MODE_RTR = 0x01
 
 # EEPROM data for Prolaser III
-global eeprom_data
 EEPROM_LENGTH = 0xb7 + 1
 eeprom_data = [0x00] * EEPROM_LENGTH
 
 eeprom_data[0x00] = 0x00
 eeprom_data[0x01] = 0x12
 eeprom_data[0x02] = 0x07
-eeprom_data[0x03] = 0x14
+eeprom_data[0x03] = 0x12  # changes from 14 to 13 to 12 to 10
 eeprom_data[0x04] = 0x08
-eeprom_data[0x05] = 0x40
+eeprom_data[0x05] = 0x3e  # changes from 40 t0 3f to 3e to 3c
 eeprom_data[0x06] = 0x07
-eeprom_data[0x07] = 0x22
+eeprom_data[0x07] = 0x1f  # changes from 22 to 21 to 20 to 1f
 eeprom_data[0x08] = 0x08
-eeprom_data[0x09] = 0x4e
+eeprom_data[0x09] = 0x4b  # changes from 4e to 4c to 4b
 eeprom_data[0x0a] = 0x00
 eeprom_data[0x0b] = 0x00
 eeprom_data[0x0c] = 0x00  # range offset hi byte (# feet * 0x64)
@@ -170,13 +174,13 @@ eeprom_data[0x18] = 0x03  # minimum range hi byte (feet * 0x64) -- set to 5
 eeprom_data[0x19] = 0xe8  # minimum range lo byte
 eeprom_data[0x1a] = 0x00
 eeprom_data[0x1b] = 0x00
-eeprom_data[0x1c] = 0x4e  # max range hi byte (feet * 0x64)
-eeprom_data[0x1d] = 0x20  # max range lo byte
+eeprom_data[0x1c] = 0x27  # max range hi byte (feet * 0x64) -- set to 100
+eeprom_data[0x1d] = 0x10  # max range lo byte
 eeprom_data[0x1e] = 0x00  # delta speed KPH (kph * 10) -- set to 3
 eeprom_data[0x1f] = 0x1e  # delta speed KPH
 
-eeprom_data[0x20] = 0x4b
-eeprom_data[0x21] = 0x00
+eeprom_data[0x20] = 0x4b  # baud rate hi byte  19200=>4b, 9600=>25, 4800=>12 is literally the baud rate
+eeprom_data[0x21] = 0x00  # baud rate lo byte  19200=>00, 9600=>80, 4800=>c0
 eeprom_data[0x22] = 0x00
 eeprom_data[0x23] = 0x0a
 eeprom_data[0x24] = 0x00
@@ -329,11 +333,11 @@ eeprom_data[0xae] = 0x02
 eeprom_data[0xaf] = 0x01  # clock start compensation, 1 is on, 0 is off.
 
 eeprom_data[0xb0] = 0x00  # CFAR toggle, 1 is on, 0 is off
-eeprom_data[0xb1] = 0x05  # min range set (single byte value?)
+eeprom_data[0xb1] = 0x0a  # min range set (single byte value?)  10 feet
 eeprom_data[0xb2] = 0x40
 eeprom_data[0xb3] = 0x14  # range filter #1, feet -- this is 20
 eeprom_data[0xb4] = 0x3c  # range filter #2, feet -- this is 80
-eeprom_data[0xb5] = 0x83  # bitmapped options:
+eeprom_data[0xb5] = 0x82  # bitmapped options: 1000 0010
                             # 7 10000000 short serial output
                             # 6 01000000 ?
                             # 5 00100000 ?
@@ -341,9 +345,273 @@ eeprom_data[0xb5] = 0x83  # bitmapped options:
                             # 3 00001000 camera mode
                             # 2 00000100 French text
                             # 1 00000010 disable checksum on lcd
-                            # 0 00000001 enable calculate tac calibrate window
+                            # 0 00000001 enable calculate tac calibrate window (does not stay on)
 eeprom_data[0xb6] = 0x50
 eeprom_checksum = 0
 for eeaddr in range(0, 0xb7):
     eeprom_checksum = (eeprom_checksum + eeprom_data[eeaddr]) & 0x00ff
 eeprom_data[0xb7] = eeprom_checksum  # CHECKSUM!
+
+
+def build_message(buffer):
+    msg = [START_OF_MESSAGE]
+    lb = len(buffer)
+    checksum = lb
+    msg.append(lb)
+    for b in buffer:
+        if b == END_OF_MESSAGE or b == MESSAGE_ESCAPE:
+            msg.append(MESSAGE_ESCAPE)
+        msg.append(b)
+        checksum = (checksum + b) & 0x00ff
+    if checksum == END_OF_MESSAGE or checksum == MESSAGE_ESCAPE:
+        msg.append(MESSAGE_ESCAPE)
+    msg.append(checksum)
+    msg.append(END_OF_MESSAGE)
+    if not validate_checksum('tx', msg):
+        print('shit! checksum mismatch: {}'.format(buffer_to_hexes(msg)), file=sys.stderr)
+    return msg
+
+
+def de_escape_message(message):
+    result = []
+    escaped = False
+    for b in message:
+        if b == MESSAGE_ESCAPE:
+            if escaped:
+                result.append(b)
+                escaped = False
+            else:
+                escaped = True
+        else:
+            escaped = False
+            result.append(b)
+    return result
+
+
+def process_tx_buffer(buffer, verbosity=5):
+    global eeprom_data
+    global log_all_rx
+    if len(buffer) < 5:
+        print('message too short: {}: {}'.format(len(buffer), buffer_to_hexes(buffer)))
+        return
+    if not validate_checksum('tx', buffer):
+        return
+
+    buffer = de_escape_message(buffer)
+    command = buffer[2]
+    if command == CMD_EXIT_REMOTE:
+        print('tx CMD_EXIT_REMOTE')
+    elif command == CMD_WHO_ARE_YOU:
+        print('tx CMD_WHO_ARE_YOU')
+    elif command == CMD_READ_RAM:
+        print('tx CMD_READ_RAM: {}'.format(buffer_to_hexes(buffer)))
+    elif command == CMD_ENABLE_REMOTE:
+        print('tx CMD_ENABLE_REMOTE')
+    elif command == CMD_TOGGLE_LASER:
+        print('tx Toggle auto-fire on/off')
+        log_all_rx = True
+    elif command == CMD_SET_MODE:
+        sub_command = buffer[3]
+        if sub_command == MODE_SPEED:
+            print('tx CMD_SET_MODE Speed')
+        elif sub_command == MODE_RTR:
+            print('tx CMD_SET_MODE RTR')
+        elif sub_command == MODE_RANGE:
+            print('tx CMD_SET_MODE_RANGE Set mode Range')
+        else:
+            print('tx CMD_SET_MODE_RANGE unknown mode {:02x}'.format(sub_command))
+    elif command == CMD_READ_EEPROM:
+        addr = buffer[3]
+        print('tx CMD_READ_EEPROM  address {:02x}'.format(addr))
+    elif command == CMD_WRITE_EEPROM:
+        sub_command = buffer[3]
+        if sub_command == 0x80:
+            addr = buffer[4]
+            data = buffer[5]
+            print('tx CMD_WRITE_EEPROM address {:02x} data {:02x}'.format(addr, data))
+            if eeprom_data[addr] != data:
+                print('                           updating eeprom address {:02x} from {:02x} to {:02x}'.format(addr,
+                                                                                                               eeprom_data[
+                                                                                                                   addr],
+                                                                                                               data))
+                eeprom_data[addr] = data
+            if addr == 0xb7:  # checksum byte
+                checksum = 0
+                for ca in range(0, 0xb7):
+                    checksum = (checksum + eeprom_data[ca]) & 0x00ff
+                print('   calculated checksum {:02x}, checksum={:02x}'.format(checksum, data))
+        else:
+            print('tx unhandled command {:02x} in {}'.format(command, buffer_to_hexes(buffer)))
+    elif command == CMD_RESET:
+        print('tx CMD_RESET')
+    else:
+        print('tx unhandled command {:02x} in {}'.format(command, buffer_to_hexes(buffer)))
+
+
+def process_rx_buffer(buffer, verbosity=5):
+    global eeprom_data
+    global log_all_rx
+    if len(buffer) < 5:
+        print('message too short: {}: {}'.format(len(buffer), buffer_to_hexes(buffer)))
+        return
+    if not validate_checksum('rx', buffer):
+        return
+    buffer = de_escape_message(buffer)
+    command = buffer[2]
+    if command == CMD_EXIT_REMOTE:
+        if verbosity > 4:
+            print('rx ACK CMD_EXIT_REMOTE')
+    elif command == CMD_READ_RAM:
+        print('rx CMD_READ_RAM response: {}'.format(buffer_to_hexes(buffer)))
+    elif command == CMD_ENABLE_REMOTE:
+        if verbosity > 4:
+            print('rx ACK CMD_ENABLE_REMOTE')
+    elif command == CMD_TOGGLE_LASER:
+        print('rx ACK CMD_TOGGLE_LASER (off)')
+        log_all_rx = False
+    elif command == CMD_SET_MODE:
+        sub_command = buffer[3]
+        if sub_command == MODE_SPEED:
+            if verbosity > 4:
+                print('rx ACK CMD_SET_MODE Speed')
+        elif sub_command == MODE_RTR:
+            if verbosity > 4:
+                print('rx ACK CMD_SET_MODE RTR')
+        elif sub_command == MODE_RANGE:
+            if verbosity > 4:
+                print('rx ACK CMD_SET_MODE Range')
+        else:
+            print('rx ACK CMD_SET_MODE unknown mode {:02x}'.format(sub_command))
+    elif command == CMD_READ_EEPROM:
+        addr = buffer[4]
+        data = buffer[5]
+        if verbosity > 4:
+            print('rx CMD_READ_EEPROM response, ee address {:02x} data {:02x}'.format(addr, data))
+        spaces = ' ' * 20
+        if eeprom_data[addr] == -1:
+            print('{}assigning eeprom address {:02x} from {:02x} to {:02x}'.format(spaces, addr, eeprom_data[addr], data))
+            eeprom_data[addr] = data
+        if eeprom_data[addr] != data:
+            print('{}updating eeprom address {:02x} from {:02x} to {:02x}'.format(spaces, addr, eeprom_data[addr], data))
+            eeprom_data[addr] = data
+    elif command == CMD_WRITE_EEPROM:
+        sub_command = buffer[3]
+        if sub_command == 0x00:
+            addr = buffer[4]
+            if verbosity > 4:
+                print('rx CMD_WRITE_EEPROM response {:02x}'.format(addr))
+        else:
+            print('rx CMD_WRITE_EEPROM response unhandled subcommand {:02x} in {}'.format(sub_command,
+                                                                                          buffer_to_hexes(buffer)))
+    elif command == CMD_READING:
+        print('rx CMD_READING: {}'.format(buffer_to_hexes(buffer[3:-2])))
+        if buffer[4] == 0xff and buffer[5] == 0x7f:
+            print('{:5.2f} feet'.format(buffer[6] / 10.0))
+    elif command == CMD_INIT_SPD23:
+        print('rx CMD_INIT_SPD23 text payload follows:')
+        start = 3
+        while buffer[start] < 0x20:
+            start += 1
+        print(bytes(buffer[start:-2]).decode())
+    elif command == CMD_INIT_SPD4:
+        print('rx CMD_INIT_SPD4 text payload follows:')
+        start = 3
+        while buffer[start] < 0x20:
+            start += 1
+        print(bytes(buffer[start:-2]).decode())
+    else:
+        print('rx unhandled command {:02x} in {}'.format(command, buffer_to_hexes(buffer)))
+
+
+def receive_message(port, expect=16, timeouts=5):
+    msg = []
+    escaped = False
+    timeouts_left = timeouts
+    expected = expect
+    while timeouts_left > 0:
+        if expected < 1:
+            expected = 1
+        buf = port.read(expected)
+        if len(buf) != 0:
+            for b in buf:
+                # print('.{:02X}.'.format(b))
+                if len(msg) > 0 and msg[0] != START_OF_MESSAGE and b == START_OF_MESSAGE:
+                    msg.clear()
+                    msg.append(b)
+                    expected = expect - 1
+                else:
+                    if b == MESSAGE_ESCAPE:
+                        if escaped:
+                            msg.append(b)
+                            expected -= 1
+                            escaped = False
+                        else:
+                            escaped = True
+                    else:
+                        expected -= 1
+                        if escaped:
+                            escaped = False
+                            msg.append(b)
+                        else:
+                            msg.append(b)
+                            if b == END_OF_MESSAGE:
+                                if len(msg) != expect:
+                                    msg_len = msg[1] + 4
+                                    print(
+                                        '   received {} but expected {}, message claims {} message {} '.format(len(msg),
+                                                                                                               expect,
+                                                                                                               msg_len,
+                                                                                                               buffer_to_hexes(
+                                                                                                                   msg)))
+                                # print('   called with {} timeouts, {} left'.format(timeouts, timeouts_left))
+                                return msg
+        else:
+            timeouts_left -= 1
+            # print('   still listening... received {} {} wanted {} left'.format(len(msg), expect, timeouts_left))
+    print('   timed out! called with {} timeouts, {} left'.format(timeouts, timeouts_left), file=sys.stderr)
+    return msg
+
+
+def send_receive_command(port, cmd, expect=16, timeouts=1):
+    port.write(cmd)
+    process_tx_buffer(cmd)
+    if expect > 0:
+        msg = receive_message(port, expect=expect, timeouts=timeouts)
+        if len(msg) == 0:
+            print('rx: None *********')
+        else:
+            process_rx_buffer(msg)
+        return msg
+    else:
+        return None
+
+
+def send_1_byte_command(port, b, expect=5, timeouts=1):
+    cmd = build_message([b])
+    return send_receive_command(port, cmd, expect=expect, timeouts=timeouts)
+
+
+def send_2_byte_command(port, b0, b1, expect=6, timeouts=1):
+    cmd = build_message([b0, b1])
+    return send_receive_command(port, cmd, expect=expect, timeouts=timeouts)
+
+
+def validate_checksum(name, buffer):
+    if len(buffer) < 5:
+        print('buffer is too short to checksum: {}'.format(buffer_to_hexes(buffer)))
+        return False
+    buffer = de_escape_message(buffer)
+    checksum = 0
+    for b in buffer[1:-2]:
+        checksum = (checksum + b) & 0x00ff
+    if checksum == buffer[-2]:
+        return True
+    else:
+        print()
+        print('---------------------------------------------------------------------------------------')
+        print('{} checksum mismatch, calculated {:02x} got {:02x}!'.format(name, checksum, buffer[-2]))
+        print(hexdump_buffer(buffer))
+        print('---------------------------------------------------------------------------------------')
+        return False
+
+
