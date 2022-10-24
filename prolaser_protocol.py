@@ -408,7 +408,7 @@ def process_tx_buffer(buffer, verbosity=5):
     elif command == CMD_ENABLE_REMOTE:
         print('tx CMD_ENABLE_REMOTE')
     elif command == CMD_TOGGLE_LASER:
-        print('tx Toggle auto-fire on/off')
+        print('tx CMD_TOGGLE_LASER (on/off?)')
         log_all_rx = True
     elif command == CMD_SET_MODE:
         sub_command = buffer[3]
@@ -422,7 +422,7 @@ def process_tx_buffer(buffer, verbosity=5):
             print('tx CMD_SET_MODE_RANGE unknown mode {:02x}'.format(sub_command))
     elif command == CMD_READ_EEPROM:
         addr = buffer[3]
-        print('tx CMD_READ_EEPROM  address {:02x}'.format(addr))
+        print('tx CMD_READ_EEPROM address {:02x}'.format(addr))
     elif command == CMD_WRITE_EEPROM:
         sub_command = buffer[3]
         if sub_command == 0x80:
@@ -486,7 +486,7 @@ def process_rx_buffer(buffer, verbosity=5):
         addr = buffer[4]
         data = buffer[5]
         if verbosity > 4:
-            print('rx CMD_READ_EEPROM response, ee address {:02x} data {:02x}'.format(addr, data))
+            print('rx CMD_READ_EEPROM response address {:02x} data {:02x}'.format(addr, data))
         spaces = ' ' * 20
         if eeprom_data[addr] == -1:
             print('{}assigning eeprom address {:02x} from {:02x} to {:02x}'.format(spaces, addr, eeprom_data[addr], data))
@@ -504,9 +504,10 @@ def process_rx_buffer(buffer, verbosity=5):
             print('rx CMD_WRITE_EEPROM response unhandled subcommand {:02x} in {}'.format(sub_command,
                                                                                           buffer_to_hexes(buffer)))
     elif command == CMD_READING:
-        print('rx CMD_READING: {}'.format(buffer_to_hexes(buffer[3:-2])))
         if buffer[4] == 0xff and buffer[5] == 0x7f:
-            print('{:5.2f} feet'.format(buffer[6] / 10.0))
+            print('rx CMD_READING: {} : {:5.1f} feet'.format(buffer_to_hexes(buffer[3:-2]), buffer[6] / 10.0))
+        else:
+            print('rx CMD_READING: {}'.format(buffer_to_hexes(buffer[3:-2])))
     elif command == CMD_INIT_SPD23:
         print('rx CMD_INIT_SPD23 text payload follows:')
         start = 3
@@ -516,9 +517,10 @@ def process_rx_buffer(buffer, verbosity=5):
     elif command == CMD_INIT_SPD4:
         print('rx CMD_INIT_SPD4 text payload follows:')
         start = 3
-        while buffer[start] < 0x20:
-            start += 1
-        print(bytes(buffer[start:-2]).decode())
+        print(hexdump_buffer(buffer[start:-2]))
+        #while buffer[start] < 0x20:
+        #    start += 1
+        #print(bytes(buffer[start:-2]).decode())
     else:
         print('rx unhandled command {:02x} in {}'.format(command, buffer_to_hexes(buffer)))
 

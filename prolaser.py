@@ -9,7 +9,6 @@ from prolaser_protocol import process_rx_buffer, receive_message, send_1_byte_co
     send_2_byte_command
 
 import prolaser_protocol
-#from prolaser_protocol import START_OF_MESSAGE, END_OF_MESSAGE, MESSAGE_ESCAPE
 from prolaser_protocol import CMD_EXIT_REMOTE, CMD_READ_RAM, CMD_ENABLE_REMOTE, CMD_TOGGLE_LASER, CMD_SET_MODE, \
     CMD_READ_EEPROM, CMD_WRITE_EEPROM, CMD_RESET, CMD_READING, CMD_INIT_SPD4
 from prolaser_protocol import MODE_SPEED, MODE_RANGE, MODE_RTR
@@ -57,7 +56,6 @@ def main():
         if time.time() > s:
             break
 
-    print('turning laser off')
     # send fire laser toggle command 07
     send_1_byte_command(port, CMD_TOGGLE_LASER, timeouts=25)  # <= 500 msec
     # send_1_byte_command(port, 0x01, timeouts=25)  # <= 500 msec
