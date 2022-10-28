@@ -21,7 +21,7 @@ Magic numbers and Escape codes:
 
 The escape code is not counted in the checksum calculation, but the escaped value _is_.
 
-The _payload_ of the message is in bytes 2:-2...
+The _payload_ of the message is in bytes [2:-2]...
 assuming the first byte of the message is a command, then I have seen these
 
 01: send 01, get 01 back.  appears to exit remote control mode
@@ -147,14 +147,14 @@ eeprom_data = [0x00] * EEPROM_LENGTH
 
 eeprom_data[0x00] = 0x00
 eeprom_data[0x01] = 0x12
-eeprom_data[0x02] = 0x07
-eeprom_data[0x03] = 0x12  # changes from 14 to 13 to 12 to 10
-eeprom_data[0x04] = 0x08
-eeprom_data[0x05] = 0x3e  # changes from 40 t0 3f to 3e to 3c
-eeprom_data[0x06] = 0x07
-eeprom_data[0x07] = 0x1f  # changes from 22 to 21 to 20 to 1f
-eeprom_data[0x08] = 0x08
-eeprom_data[0x09] = 0x4b  # changes from 4e to 4c to 4b
+eeprom_data[0x02] = 0x07  # tac/cal leading edge low value MSB (0x07)
+eeprom_data[0x03] = 0x14  # tac/cal leading edge low value LSB (0x14)  (1812)
+eeprom_data[0x04] = 0x08  # tac/cal leading edge high value MSB (0x08)
+eeprom_data[0x05] = 0x40  # tac/cal leading edge high value LSB (0x40)  (2112)
+eeprom_data[0x06] = 0x07  # tac/cal trailing edge low value MSB (0x07)
+eeprom_data[0x07] = 0x22  # tac/cal trailing edge low value LSB (0x22) (1826)
+eeprom_data[0x08] = 0x08  # tac/cal trailing edge high value MSB (0x08)
+eeprom_data[0x09] = 0x4e  # tac/cal trailing edge high value LSB (0x4e) (2126)
 eeprom_data[0x0a] = 0x00
 eeprom_data[0x0b] = 0x00
 eeprom_data[0x0c] = 0x00  # range offset hi byte (# feet * 0x64)
@@ -182,22 +182,22 @@ eeprom_data[0x1f] = 0x1e  # delta speed KPH
 eeprom_data[0x20] = 0x4b  # baud rate hi byte  19200=>4b, 9600=>25, 4800=>12 is literally the baud rate
 eeprom_data[0x21] = 0x00  # baud rate lo byte  19200=>00, 9600=>80, 4800=>c0
 eeprom_data[0x22] = 0x00
-eeprom_data[0x23] = 0x0a
-eeprom_data[0x24] = 0x00
-eeprom_data[0x25] = 0x2b
-eeprom_data[0x26] = 0x00
-eeprom_data[0x27] = 0xb4
-eeprom_data[0x28] = 0x00
-eeprom_data[0x29] = 0x00
-eeprom_data[0x2a] = 0x00
-eeprom_data[0x2b] = 0x00
-eeprom_data[0x2c] = 0x00
-eeprom_data[0x2d] = 0x00
-eeprom_data[0x2e] = 0x00
-eeprom_data[0x2f] = 0x00
+eeprom_data[0x23] = 0x0a  # continuity value
+eeprom_data[0x24] = 0x00  # minimum number MSB
+eeprom_data[0x25] = 0x2b  # minimum number LSB (43)
+eeprom_data[0x26] = 0x00  # maximum number MSB
+eeprom_data[0x27] = 0xb4  # maximum number LSB (180)
+eeprom_data[0x28] = 0x00  # display lock timeout MSB (0)
+eeprom_data[0x29] = 0x00  # display lock timeout LSB (0) # seconds * 20
+eeprom_data[0x2a] = 0x00  # sleep timeout MSB (0)
+eeprom_data[0x2b] = 0x00  # sleep timeout LSB (0)  # seconds * 20
+eeprom_data[0x2c] = 0x00  # power off timeout MSB (0)
+eeprom_data[0x2d] = 0x00  # Power off timeout LSB (0) # seconds * 20
+eeprom_data[0x2e] = 0x00  # gun fire timeout MSB (0)
+eeprom_data[0x2f] = 0x00  # gun fire timeout LSB (0) # seconds * 25 (!)
 
-eeprom_data[0x30] = 0x01
-eeprom_data[0x31] = 0x1e
+eeprom_data[0x30] = 0x01  # filter # 1 min pulse width MSB (0x01)
+eeprom_data[0x31] = 0x1e  # filter # 1 min pulse width MSB (0x14) 28.6 ns
 eeprom_data[0x32] = 0x01
 eeprom_data[0x33] = 0xa0
 eeprom_data[0x34] = 0x00
@@ -221,17 +221,17 @@ eeprom_data[0x44] = 0x00
 eeprom_data[0x45] = 0x05
 eeprom_data[0x46] = 0x09
 eeprom_data[0x47] = 0x10
-eeprom_data[0x48] = 0x05
-eeprom_data[0x49] = 0x78
+eeprom_data[0x48] = 0x05  # filter # 4 min pulse width MSB (0x05) (140 nsec)
+eeprom_data[0x49] = 0x78  # filter # 4 min pulse width LSB (0x78 = 140 nsec)
 eeprom_data[0x4a] = 0x2c
 eeprom_data[0x4b] = 0x24
-eeprom_data[0x4c] = 0x00
+eeprom_data[0x4c] = 0x00  # filter # 4 offset MSB
 eeprom_data[0x4d] = 0xf1
 eeprom_data[0x4e] = 0x64
-eeprom_data[0x4f] = 0xd9
+eeprom_data[0x4f] = 0xd9  # filter # 4 offset LSB
 
-eeprom_data[0x50] = 0x00
-eeprom_data[0x51] = 0x00
+eeprom_data[0x50] = 0x00  # range variance minimum 1 MSB
+eeprom_data[0x51] = 0x00  # range variance minimum 1 LSB (0) feet * 10.
 eeprom_data[0x52] = 0xe9
 eeprom_data[0x53] = 0x4c
 eeprom_data[0x54] = 0x66
@@ -255,14 +255,14 @@ eeprom_data[0x64] = 0xe9
 eeprom_data[0x65] = 0x4c
 eeprom_data[0x66] = 0x66
 eeprom_data[0x67] = 0x2a
-eeprom_data[0x68] = 0x1b
-eeprom_data[0x69] = 0x58
-eeprom_data[0x6a] = 0xe9
+eeprom_data[0x68] = 0x1b  # range variance maximum 4 MSB
+eeprom_data[0x69] = 0x58  # range variance minimum 4 LSB (700) feet * 10.
+eeprom_data[0x6a] = 0xe9  # float value variance 4 MSB
 eeprom_data[0x6b] = 0x4c
 eeprom_data[0x6c] = 0x66
-eeprom_data[0x6d] = 0x2a
-eeprom_data[0x6e] = 0x00
-eeprom_data[0x6f] = 0x00
+eeprom_data[0x6d] = 0x2a  # float value variance 4 LSB (0.199999998765385)
+eeprom_data[0x6e] = 0x00  # range variance maximum 5 MSB
+eeprom_data[0x6f] = 0x00  # range variance maximum 5 LSB
 
 eeprom_data[0x70] = 0x00
 eeprom_data[0x71] = 0x00
@@ -292,61 +292,61 @@ eeprom_data[0x87] = 0x00
 eeprom_data[0x88] = 0x00
 eeprom_data[0x89] = 0x00
 eeprom_data[0x8a] = 0x00
-eeprom_data[0x8b] = 0x00
+eeprom_data[0x8b] = 0x00  # end of range/variance data
 eeprom_data[0x8c] = 0x83
 eeprom_data[0x8d] = 0x3a
 eeprom_data[0x8e] = 0xf9
 eeprom_data[0x8f] = 0x28
 
-eeprom_data[0x90] = 0x00
-eeprom_data[0x91] = 0x50
-eeprom_data[0x92] = 0x00
-eeprom_data[0x93] = 0x52
-eeprom_data[0x94] = 0x01
-eeprom_data[0x95] = 0x54
-eeprom_data[0x96] = 0x02
-eeprom_data[0x97] = 0x55
-eeprom_data[0x98] = 0x03
-eeprom_data[0x99] = 0x57
-eeprom_data[0x9a] = 0x05
-eeprom_data[0x9b] = 0x58
-eeprom_data[0x9c] = 0x09
-eeprom_data[0x9d] = 0x5b
-eeprom_data[0x9e] = 0x0f
-eeprom_data[0x9f] = 0x5e
+eeprom_data[0x90] = 0x00  # HUD [0] (0)
+eeprom_data[0x91] = 0x50  # Reticle [0] (80)
+eeprom_data[0x92] = 0x00  # HUD [1] (0)
+eeprom_data[0x93] = 0x52  # Reticle [0] (82)
+eeprom_data[0x94] = 0x01  # HUD [2] (1)
+eeprom_data[0x95] = 0x54  # Reticle [2] (84)
+eeprom_data[0x96] = 0x02  # HUD [2] (2)
+eeprom_data[0x97] = 0x55  # Reticle [3] (85)
+eeprom_data[0x98] = 0x03  # HUD [3] (3)
+eeprom_data[0x99] = 0x57  # Reticle [4] (87)
+eeprom_data[0x9a] = 0x05  # HUD [4] (5)
+eeprom_data[0x9b] = 0x58  # Reticle [4] (88)
+eeprom_data[0x9c] = 0x09  # HUD [5] (9)
+eeprom_data[0x9d] = 0x5b  # Reticle [5] (91)
+eeprom_data[0x9e] = 0x0f  # HUD [6] (15)
+eeprom_data[0x9f] = 0x5e  # Reticle [6] (94)
 
-eeprom_data[0xa0] = 0x58
-eeprom_data[0xa1] = 0x05
-eeprom_data[0xa2] = 0x05
+eeprom_data[0xa0] = 0x58  # --> brightness 7: hud bright 6: 5b, 5: 58, 4: 57, 3: 55, 2: 54, 1: 52, 0: 50 (58)
+eeprom_data[0xa1] = 0x05  # HUD brightness level (5)
+eeprom_data[0xa2] = 0x05  # piezo volume level (5)
 eeprom_data[0xa3] = 0x01  # units. 01: english, 02: SI, 03: knots/feet, 04: knots/meters, 05: feet/sec, 06: meters/sec
 eeprom_data[0xa4] = 0x03  # speed type. 01: approaching. 02: receding, 03: both
-eeprom_data[0xa5] = 0x3c
-eeprom_data[0xa6] = 0x00
-eeprom_data[0xa7] = 0x03
-eeprom_data[0xa8] = 0x00
+eeprom_data[0xa5] = 0x3c  # update rate (60)
+eeprom_data[0xa6] = 0x00  # operating mode: 00: speed, 01: RTR, 03: range
+eeprom_data[0xa7] = 0x03  # set to 03 when above is 0, literally  (-(param_1[0xa6] != '\0') & 0xfdU) + 3;
+eeprom_data[0xa8] = 0x00  # display lock enable when 01
 eeprom_data[0xa9] = 0x02  # speed packet op code: SPD2: 01, SPD3: 00, SPD4: 02
-eeprom_data[0xaa] = 0x00
-eeprom_data[0xab] = 0x01
-eeprom_data[0xac] = 0x14
-eeprom_data[0xad] = 0x0a
-eeprom_data[0xae] = 0x02
+eeprom_data[0xaa] = 0x00  # use first speed delta, value is 01 when selected
+eeprom_data[0xab] = 0x01  # reset sample window when 01.
+eeprom_data[0xac] = 0x14  # prefilter count
+eeprom_data[0xad] = 0x0a  # good data % (10)
+eeprom_data[0xae] = 0x02  # number of speeds averaged.
 eeprom_data[0xaf] = 0x01  # clock start compensation, 1 is on, 0 is off.
 
 eeprom_data[0xb0] = 0x00  # CFAR toggle, 1 is on, 0 is off
 eeprom_data[0xb1] = 0x0a  # min range set (single byte value?)  10 feet
-eeprom_data[0xb2] = 0x40
+eeprom_data[0xb2] = 0x40  # 64 what?
 eeprom_data[0xb3] = 0x14  # range filter #1, feet -- this is 20
 eeprom_data[0xb4] = 0x3c  # range filter #2, feet -- this is 80
 eeprom_data[0xb5] = 0x82  # bitmapped options: 1000 0010
                             # 7 10000000 short serial output
-                            # 6 01000000 ?
-                            # 5 00100000 ?
+                            # 6 01000000 not used?
+                            # 5 00100000 not used?
                             # 4 00010000 Italian text
                             # 3 00001000 camera mode
                             # 2 00000100 French text
                             # 1 00000010 disable checksum on lcd
                             # 0 00000001 enable calculate tac calibrate window (does not stay on)
-eeprom_data[0xb6] = 0x50
+eeprom_data[0xb6] = 0x50  # data quality % literal value.
 eeprom_checksum = 0
 for eeaddr in range(0, 0xb7):
     eeprom_checksum = (eeprom_checksum + eeprom_data[eeaddr]) & 0x00ff
@@ -422,13 +422,15 @@ def process_tx_buffer(buffer, verbosity=5):
             print('tx CMD_SET_MODE_RANGE unknown mode {:02x}'.format(sub_command))
     elif command == CMD_READ_EEPROM:
         addr = buffer[3]
-        print('tx CMD_READ_EEPROM address {:02x}'.format(addr))
+        if verbosity > 4:
+            print('tx CMD_READ_EEPROM address {:02x}'.format(addr))
     elif command == CMD_WRITE_EEPROM:
         sub_command = buffer[3]
         if sub_command == 0x80:
             addr = buffer[4]
             data = buffer[5]
-            print('tx CMD_WRITE_EEPROM address {:02x} data {:02x}'.format(addr, data))
+            if verbosity > 4:
+                print('tx CMD_WRITE_EEPROM address {:02x} data {:02x}'.format(addr, data))
             if eeprom_data[addr] != data:
                 print('                           updating eeprom address {:02x} from {:02x} to {:02x}'.format(addr,
                                                                                                                eeprom_data[

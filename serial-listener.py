@@ -18,6 +18,7 @@ eeprom_data = bytearray(256)
 
 
 def main():
+    verbosity = 4
     try:
         tx_port = serial.Serial(port='com3:',
                                 baudrate=BAUD_RATE,
@@ -53,7 +54,7 @@ def main():
                         tx_buffer.append(b)
                         if b == END_OF_MESSAGE and not tx_was_escaped:
                             if validate_checksum('tx', tx_buffer):
-                                process_tx_buffer(tx_buffer)
+                                process_tx_buffer(tx_buffer, verbosity=verbosity)
                             else:
                                 dump_buffer('tx', tx_buffer, True)
                             tx_buffer.clear()
@@ -75,7 +76,7 @@ def main():
                         rx_buffer.append(b)
                         if b == END_OF_MESSAGE and not rx_was_escaped:
                             if validate_checksum('rx', rx_buffer):
-                                process_rx_buffer(rx_buffer, verbosity=5)
+                                process_rx_buffer(rx_buffer, verbosity=verbosity)
                             else:
                                 dump_buffer('rx', rx_buffer, True)
                             rx_buffer.clear()
