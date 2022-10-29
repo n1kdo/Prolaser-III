@@ -5,20 +5,12 @@
 
 import time
 
-from prolaser_protocol import process_rx_buffer, receive_message, send_1_byte_command, \
-    send_2_byte_command, send_multi_byte_command
-
-import prolaser_protocol
-from prolaser_protocol import CMD_EXIT_REMOTE, CMD_READ_RAM, CMD_ENABLE_REMOTE, CMD_TOGGLE_LASER, CMD_SET_MODE, \
-    CMD_READ_EEPROM, CMD_WRITE_EEPROM, CMD_RESET, CMD_READING, CMD_INIT_SPD4, CMD_WHO_ARE_YOU
-from prolaser_protocol import MODE_SPEED, MODE_RANGE, MODE_RTR
-from prolaser_protocol import EEPROM_LENGTH
+import pl3
 
 from serialport import SerialPort
 
-eeprom_data = prolaser_protocol.eeprom_data
+eeprom_data = pl3.eeprom_data
 BAUD_RATE = 19200  # note that this is a function of the EEPROM programming
-log_all_rx = False
 
 
 def main():
@@ -26,33 +18,34 @@ def main():
 
     # program EEPROM
     # first stage: make sure Prolaser III
-    send_1_byte_command(port, CMD_WHO_ARE_YOU, 160)
-    send_1_byte_command(port, CMD_ENABLE_REMOTE)
-    result = send_2_byte_command(port, CMD_READ_EEPROM, 0x01, 8)  # read address 0x01
-    send_1_byte_command(port, CMD_EXIT_REMOTE)
-
-    if result != 0x12:
-        print('bad data read from address 0x01, expecting 0x12, got {:02x}'.format(result))
+    expect = pl3.read_ee(port, 0x01)
+    device_id = pl3.receive_response(port, expect=expect)
+    if device_id != 0x12:
+        print('bad device_id {}'.format(device_id))
         return
-
     time.sleep(1.0)
 
-    #fw_address = 0xaf
+    #fw_address = 0xaf  # address to fuck with
     #print('eeprom_data[{:02x}] = {:02x}'.format(fw_address, eeprom_data[fw_address]))
     #eeprom_data[fw_address] |= 0x80
     #print('eeprom_data[{:02x}] = {:02x}'.format(fw_address, eeprom_data[fw_address]))
+
     # recalculate checksum:
     eeprom_checksum = 0
-    for eeaddr in range(0, EEPROM_LENGTH - 1):
-        eeprom_checksum = (eeprom_checksum + eeprom_data[eeaddr]) & 0x00ff
+    for address in range(0, pl3.EEPROM_LENGTH - 1):
+        eeprom_checksum = (eeprom_checksum + eeprom_data[address]) & 0x00ff
     eeprom_data[0xb7] = eeprom_checksum  # CHECKSUM!
 
-    send_1_byte_command(port, CMD_ENABLE_REMOTE)
-    for i in range(0, EEPROM_LENGTH):
-        send_multi_byte_command(port, [CMD_WRITE_EEPROM, 0x80, i, eeprom_data[i]], expect=8, verbosity=4)
-    send_1_byte_command(port, CMD_EXIT_REMOTE)
+    expect = pl3.enable_remote(port)
+    pl3.receive_response(port, expect=expect)
+    for i in range(0, pl3.EEPROM_LENGTH):
+        expect = pl3.write_ee(port, i, eeprom_data[i])
+        result = pl3.receive_response(port, expect=expect)
+    expect = pl3.exit_remote(port)
+    pl3.receive_response(port, expect=expect)
 
-    send_1_byte_command(port, CMD_RESET, expect=160, timeouts=1000)
+    expect = pl3.reset(port)
+    result = pl3.receive_response(port, expect=expect, timeouts=1000)
 
     print('done')
 

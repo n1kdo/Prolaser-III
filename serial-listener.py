@@ -9,12 +9,9 @@ import serial
 import sys
 import time
 
-from buffer_utils import dump_buffer
-from prolaser_protocol import process_rx_buffer, process_tx_buffer, validate_checksum
-from prolaser_protocol import START_OF_MESSAGE, END_OF_MESSAGE, MESSAGE_ESCAPE
+import pl3
 
 BAUD_RATE = 19200  # note that this depends on the EEPROM programming
-eeprom_data = bytearray(256)
 
 
 def main():
@@ -47,16 +44,13 @@ def main():
                         if tx_escaped:
                             tx_escaped = False
                         else:
-                            if b == MESSAGE_ESCAPE:
+                            if b == pl3.MESSAGE_ESCAPE:
                                 tx_escaped = True
-                        if b == START_OF_MESSAGE and len(tx_buffer) > 0 and tx_buffer[0] != START_OF_MESSAGE:
+                        if b == pl3.START_OF_MESSAGE and len(tx_buffer) > 0 and tx_buffer[0] != pl3.START_OF_MESSAGE:
                             tx_buffer.clear()
                         tx_buffer.append(b)
-                        if b == END_OF_MESSAGE and not tx_was_escaped:
-                            if validate_checksum('tx', tx_buffer):
-                                process_tx_buffer(tx_buffer, verbosity=verbosity)
-                            else:
-                                dump_buffer('tx', tx_buffer, True)
+                        if b == pl3.END_OF_MESSAGE and not tx_was_escaped:
+                            pl3.process_tx_buffer(tx_buffer, verbosity=verbosity)
                             tx_buffer.clear()
                 else:
                     break
@@ -69,16 +63,13 @@ def main():
                         if rx_escaped:
                             rx_escaped = False
                         else:
-                            if b == MESSAGE_ESCAPE:
+                            if b == pl3.MESSAGE_ESCAPE:
                                 rx_escaped = True
-                        if b == START_OF_MESSAGE and len(rx_buffer) > 0 and rx_buffer[0] != START_OF_MESSAGE:
+                        if b == pl3.START_OF_MESSAGE and len(rx_buffer) > 0 and rx_buffer[0] != pl3.START_OF_MESSAGE:
                             rx_buffer.clear()
                         rx_buffer.append(b)
-                        if b == END_OF_MESSAGE and not rx_was_escaped:
-                            if validate_checksum('rx', rx_buffer):
-                                process_rx_buffer(rx_buffer, verbosity=verbosity)
-                            else:
-                                dump_buffer('rx', rx_buffer, True)
+                        if b == pl3.END_OF_MESSAGE and not rx_was_escaped:
+                            pl3.process_rx_buffer(rx_buffer, verbosity=verbosity)
                             rx_buffer.clear()
                 else:
                     break

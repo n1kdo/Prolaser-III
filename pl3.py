@@ -467,6 +467,7 @@ def process_rx_buffer(buffer, verbosity=5):
     elif command == CMD_READING:
         if buffer[4] == 0xff and buffer[5] == 0x7f:
             print('rx CMD_READING: {} : {:5.1f} feet'.format(buffer_to_hexes(buffer[3:-2]), buffer[6] / 10.0))
+            result = '{} {}'.format(buffer_to_hexes(buffer[3:-2]), buffer[6] / 10.0)
         else:
             print('rx CMD_READING: {}'.format(buffer_to_hexes(buffer[3:-2])))
     elif command == CMD_INIT_SPD23:
@@ -484,7 +485,7 @@ def process_rx_buffer(buffer, verbosity=5):
         # print(bytes(buffer[start:-2]).decode())
     else:
         print('rx unhandled command {:02x} in {}'.format(command, buffer_to_hexes(buffer)))
-    return result
+    return command, result
 
 
 def receive_message(port, expect=16, timeouts=5):
@@ -535,35 +536,6 @@ def receive_message(port, expect=16, timeouts=5):
     return msg
 
 
-def send_receive_command(port, cmd, expect=16, timeouts=1, verbosity=5):
-    port.write(cmd)
-    process_tx_buffer(cmd, verbosity=verbosity)
-    if expect > 0:
-        msg = receive_message(port, expect=expect, timeouts=timeouts)
-        if len(msg) == 0:
-            print('rx: None *********')
-            return None
-        else:
-            return process_rx_buffer(msg, verbosity=verbosity)
-    else:
-        return None
-
-
-def send_1_byte_command(port, b, expect=5, timeouts=1, verbosity=5):
-    cmd = build_message([b])
-    return send_receive_command(port, cmd, expect=expect, timeouts=timeouts, verbosity=verbosity)
-
-
-def send_2_byte_command(port, b0, b1, expect=6, timeouts=1, verbosity=5):
-    cmd = build_message([b0, b1])
-    return send_receive_command(port, cmd, expect=expect, timeouts=timeouts, verbosity=verbosity)
-
-
-def send_multi_byte_command(port, command, expect=6, timeouts=1, verbosity=5):
-    cmd = build_message(command)
-    return send_receive_command(port, cmd, expect=expect, timeouts=timeouts, verbosity=verbosity)
-
-
 def validate_checksum(name, buffer):
     if len(buffer) < 5:
         print('buffer is too short to checksum: {}'.format(buffer_to_hexes(buffer)))
@@ -581,3 +553,57 @@ def validate_checksum(name, buffer):
         print(hexdump_buffer(buffer))
         print('---------------------------------------------------------------------------------------')
         return False
+
+
+def send_cmd(port, msg, verbosity=0):
+    cmd = build_message(msg)
+    process_tx_buffer(cmd, verbosity=verbosity)
+    port.write(cmd)
+
+
+def enable_remote(port, verbosity=0):
+    send_cmd(port, [CMD_ENABLE_REMOTE], verbosity=verbosity)
+    return 5
+
+
+def read_ee(port, address, verbosity=0):
+    send_cmd(port, [CMD_READ_EEPROM, address], verbosity=verbosity)
+    return 8
+
+
+def exit_remote(port, verbosity=0):
+    send_cmd(port, [CMD_EXIT_REMOTE], verbosity=verbosity)
+    return 5
+
+
+def reset(port, verbosity=0):
+    send_cmd(port, [CMD_RESET], verbosity=verbosity)
+    return 160
+
+
+def set_mode(port, mode, verbosity=0):
+    send_cmd(port, [CMD_SET_MODE, mode], verbosity=verbosity)
+    return 5
+
+
+def toggle_laser(port, verbosity=0):
+    send_cmd(port, [CMD_TOGGLE_LASER], verbosity=verbosity)
+    return 5
+
+
+def write_ee(port, address, data, verbosity=0):
+    send_cmd(port, [CMD_WRITE_EEPROM, 0x80, address, data], verbosity=verbosity)
+    return 8
+
+
+def receive_response(port, expect=16, timeouts=1, verbosity=5):
+    if expect > 0:
+        msg = receive_message(port, expect=expect, timeouts=timeouts)
+        if len(msg) == 0:
+            print('rx: None *********')
+            return None, None
+        else:
+            return process_rx_buffer(msg, verbosity=verbosity)
+    else:
+        return None, None
+

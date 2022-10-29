@@ -3,8 +3,6 @@
 # Prolaser III data collector.
 # collect speed data from Prolaser III
 #
-# minimum-prolaser just the facts ma'am.  least effort to get device collecting data.
-#
 import time
 
 import pl3
@@ -19,16 +17,39 @@ log_all_rx = False
 def main():
     port = SerialPort(baudrate=BAUD_RATE)
 
+    expect = pl3.enable_remote(port)
+    pl3.receive_response(port, expect=expect)
+
     expect = pl3.read_ee(port, 0x01)
     device_id = pl3.receive_response(port, expect=expect)
     if device_id != 0x12:
         print('bad device_id {}'.format(device_id))
 
+    expect = pl3.exit_remote(port)
+    pl3.receive_response(port, expect=expect)
+
     expect = pl3.set_mode(port, pl3.MODE_RANGE)
     pl3.receive_response(port, expect=expect)
 
+    expect = pl3.enable_remote(port)
+    pl3.receive_response(port, expect=expect)
 
-    pl3.toggle_laser(port)  # if laser is off, nothing is expected...
+    expect = pl3.read_ee(port, 0x01)
+    command, device_id = pl3.receive_response(port, expect=expect)
+    if device_id != 0x12:
+        print('bad device_id {}'.format(device_id))
+
+    expect = pl3.read_ee(port, 0xa9)
+    command, packet_type = pl3.receive_response(port, expect=expect)
+    if packet_type != 2:
+        print('bad packet type {}'.format(packet_type))
+
+    expect = pl3.exit_remote(port)
+    pl3.receive_response(port, expect=expect)
+
+    expect = pl3.toggle_laser(port)  # if laser is off, nothing is expected...
+    command, result = pl3.receive_response(port, expect=expect, timeouts=20)
+    print(command, result)
 
     print('listening...')
     s = time.time() + 10
@@ -41,8 +62,10 @@ def main():
 
     result = pl3.receive_response(port, expect=expect, timeouts=100)
     print(result)
-    #expect = pl3.exit_remote(port)
-    #pl3.receive_response(port, expect=expect)
+
+    #send_1_byte_command(port, CMD_TOGGLE_LASER, timeouts=25)  # <= 500 msec
+    # send_1_byte_command(port, 0x01, timeouts=25)  # <= 500 msec
+
     print('done')
 
 
