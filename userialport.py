@@ -10,8 +10,8 @@ class SerialPort:
                          baudrate=baudrate,
                          parity=None,
                          stop=1,
-                         timeout=50,
-                         timeout_char=20,
+                         timeout=40,
+                         timeout_char=40,
                          tx=Pin(0),
                          rx=Pin(1))
 
@@ -19,15 +19,13 @@ class SerialPort:
         self.port.close()
 
     def write(self, buffer):
-        self.port.write(bytes(buffer))
-        while not self.port.txdone():
-            pass  # spin while waiting for buffer to send
+        self.port.write(buffer)
 
     def read(self, size=16):
-        buffer = self.port.read(size)
-        if buffer is None:
-            buffer = []
-        return buffer
+        read_buffer = self.port.read(size)
+        if read_buffer is None:
+            read_buffer = []
+        return read_buffer
 
     def flush_read(self):
         self.port.read()

@@ -18,7 +18,7 @@ eeprom_data = bytearray(256)
 
 
 def main():
-    verbosity = 4
+    verbosity = 5
     try:
         tx_port = serial.Serial(port='com3:',
                                 baudrate=BAUD_RATE,

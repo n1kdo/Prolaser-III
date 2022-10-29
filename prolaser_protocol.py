@@ -52,6 +52,7 @@ THEN...
 
 """
 import sys
+import time
 from buffer_utils import buffer_to_hexes, hexdump_buffer
 
 log_all_rx = False
@@ -307,7 +308,8 @@ eeprom_data[0xb7] = eeprom_checksum  # CHECKSUM!
 
 
 def build_message(buffer):
-    msg = [START_OF_MESSAGE]
+    msg = bytearray()
+    msg.append(START_OF_MESSAGE)
     lb = len(buffer)
     checksum = lb
     msg.append(lb)
@@ -523,7 +525,7 @@ def receive_message(port, expect=16, timeouts=5):
                                     if len(msg) != expect:
                                         msg_len = msg[1] + 4
                                         fmt = '   received {} but expected {}, message claims {} message {} '
-                                        print(fmt.format.format(len(msg), expect, msg_len, buffer_to_hexes(msg)))
+                                        print(fmt.format(len(msg), expect, msg_len, buffer_to_hexes(msg)))
                                 # print('   called with {} timeouts, {} left'.format(timeouts, timeouts_left))
                                 return msg
         else:
