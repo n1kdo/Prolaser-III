@@ -26,8 +26,9 @@ def main():
     send_1_byte_command(port, CMD_ENABLE_REMOTE)
     send_2_byte_command(port, CMD_READ_EEPROM, 0x01, expect=8)
     send_1_byte_command(port, CMD_EXIT_REMOTE)
+    mode = MODE_RANGE
     # send_2_byte_command(port, CMD_SET_MODE, MODE_SPEED)  # speed mode
-    send_2_byte_command(port, CMD_SET_MODE, MODE_RANGE)  # range mode for debugging
+    send_2_byte_command(port, CMD_SET_MODE, mode)  # range mode for debugging
 
     send_1_byte_command(port, CMD_ENABLE_REMOTE)
     # send read ee address 1

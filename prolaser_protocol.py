@@ -25,7 +25,7 @@ The _payload_ of the message is in bytes [2:-2]...
 assuming the first byte of the message is a command, then I have seen these
 
 01: send 01, get 01 back.  appears to exit remote control mode
-02: send 02 98 a0 ??? read RAM
+02: send 02 98 a0 -- read RAM
 05: reply with init message
 06: send 06, get 06 back.  appears to enable remote control mode.
 07: automatic fire mode. send once to turn on, send again to turn off,  get 07 back on turn off
@@ -50,71 +50,10 @@ THEN...
 01
 13 RESET
 
-eeprom mapping
-
-0x0c range offset high byte of 16 bit value. # feet * 64
-0x0d range offset.   0.1 ft -> 000a
-                     2.2 ft -> 00dc
-                     2.0 ft -> 00c8
-                     1.0 ft -> 0064
-                    10.0 ft -> 03e8
-
-0e speed offset hi byte MPH * 10
-0f speed offset lo byte
-  val hi lo
-   30 01 sc
-   20 00 c8
-   00 00 00
-
-0x18 min range high byte of 16-bit value
-0x19 min range low  byte of 16-bit value
-  "minimum range" mapping to 0x18, 0x19 addresses
-  val  18 19
-  01:  00 64
-  02:  00 c8
-  03:  01 2c
-  04:  01 90
-  05:  01 f4
-  06:  02 58
-  10:  03 e8
-  20:  07 d0
- 100:  27 10
-
-This appears to be a 16-bit value calculated by # feet * 0x64.  Hi byte in 0x18, low byte in 0x19
-
-0xa3: Units.  01: english, 02: SI, 03: knots/feet, 04: knots/meters, 05: feet/sec, 06: meters/sec
-
-0xa9: speed packet op code: SPD2: 01, SPD3: 00, SPD4: 02
-
-0xaf: clock start compensation, 1 is on, 0 is off.
-
-0xb0: CFAR toggle, 1 is on, 0 is off
-
-0xb1: min range set value
-
-0xb5: calculate TAC area calibrate window on->off was 0b, changed to 0a
-                                          off->on was 0a, change to 0b
-                                          appears that bit 0 (LSB) toggles Calculate TAC calibrate window
-0xb5: do not show checksum on lcd of->off was 0b, changed to 09
-                                  off->on was 09, changed to 0b
-                                  appears that bit 1 when set disables checksum on LCD
-0xb5: french text off->on: was 0b, changed to 0f
-                  on->off: was of, changed to 0b
-                  appears that bit 2 enables french text
-0xb5: camera mode on->off: was 0b, changed to 03
-                  off->on: was 03, changed to 0b
-                  appears that bit 3 toggles camera mode.
-0xb5: italian text off->on: was 0b, changed to 1b
-                   on->off: was 1b, changed to 0b
-                   appears that bit 4 enables italian text
-0xb5: short serial output: off->on was 0b changed to 8b
-                           on->off was 9b changed to 0b
-                           appears that bit 7 enables short serial
-0xb7: checksum of bytes 00-b6
-
 """
 import sys
 from buffer_utils import buffer_to_hexes, hexdump_buffer
+
 log_all_rx = False
 
 # message bytes
@@ -123,18 +62,29 @@ END_OF_MESSAGE = 0x03
 MESSAGE_ESCAPE = 0x10
 
 # command bytes
+
+CMD_UNK_00 = 0x00  # sends back message 0 of 260 bytes back of mostly zeros
 CMD_EXIT_REMOTE = 0x01
 CMD_READ_RAM = 0x02
+CMD_UNK_03 = 0x03  # sends back message 0 260 bytes
+CMD_UNK_04 = 0x04  # sends back message 0 260 bytes
 CMD_WHO_ARE_YOU = 0x05
 CMD_ENABLE_REMOTE = 0x06
 CMD_TOGGLE_LASER = 0x07
+CMD_UNK_09 = 0x09  # sends back message 0 260 bytes
 CMD_SET_MODE = 0x0a
 CMD_READ_EEPROM = 0x0b
 CMD_WRITE_EEPROM = 0x0c
-CMD_INIT_SPD23 = 0x12
+CMD_UNK_0D = 0x0d  # sends back message 0 260 bytes
+CMD_UNK_0E = 0x0e  # sends back message 0 260 bytes
+CMD_UNK_0F = 0x0f  # sends back message 0 260 bytes
+CMD_UNK_10 = 0x10  # sends back message 0 260 bytes
+CMD_UNK_11 = 0x11  # sends back message 0 260 bytes
+CMD_UNK_12 = 0x12  # sends back message 0 260 bytes
+CMD_INIT_SPD23 = 0x12  # this is a response message
 CMD_RESET = 0x13
-CMD_READING = 0x18
-CMD_INIT_SPD4 = 0x19
+CMD_READING = 0x18  # this is a response message
+CMD_INIT_SPD4 = 0x19  # this is a response message
 
 # known command data bytes
 MODE_SPEED = 0x00
@@ -142,11 +92,14 @@ MODE_RANGE = 0x03
 MODE_RTR = 0x01
 
 # EEPROM data for Prolaser III
+#
+# right now this is both a memory map and a set of defaults.
+#
 EEPROM_LENGTH = 0xb7 + 1
 eeprom_data = [0x00] * EEPROM_LENGTH
 
 eeprom_data[0x00] = 0x00
-eeprom_data[0x01] = 0x12
+eeprom_data[0x01] = 0x12  # magic value
 eeprom_data[0x02] = 0x07  # tac/cal leading edge low value MSB (0x07)
 eeprom_data[0x03] = 0x14  # tac/cal leading edge low value LSB (0x14)  (1812)
 eeprom_data[0x04] = 0x08  # tac/cal leading edge high value MSB (0x08)
@@ -155,8 +108,8 @@ eeprom_data[0x06] = 0x07  # tac/cal trailing edge low value MSB (0x07)
 eeprom_data[0x07] = 0x22  # tac/cal trailing edge low value LSB (0x22) (1826)
 eeprom_data[0x08] = 0x08  # tac/cal trailing edge high value MSB (0x08)
 eeprom_data[0x09] = 0x4e  # tac/cal trailing edge high value LSB (0x4e) (2126)
-eeprom_data[0x0a] = 0x00
-eeprom_data[0x0b] = 0x00
+eeprom_data[0x0a] = 0x00  # ??? set to 01 does not affect poor environment
+eeprom_data[0x0b] = 0x00  # ??? set to 01 does not affect poor environment
 eeprom_data[0x0c] = 0x00  # range offset hi byte (# feet * 0x64)
 eeprom_data[0x0d] = 0xdc  # range offset lo byte
 eeprom_data[0x0e] = 0x00  # speed offset hi byte (mph * 10)
@@ -168,12 +121,12 @@ eeprom_data[0x12] = 0x00  # minimum speed hi byte (mph * 10) -- set to 5
 eeprom_data[0x13] = 0x32  # minimum speed
 eeprom_data[0x14] = 0x07  # maximum speed hi byte (mph * 10) -- set to 201
 eeprom_data[0x15] = 0xda  # maximum speed lo byte (mph * 10)
-eeprom_data[0x16] = 0x00
-eeprom_data[0x17] = 0x00
+eeprom_data[0x16] = 0x00  # ??? set to 01 does not affect poor environment
+eeprom_data[0x17] = 0x00  # ??? set to 01 does not affect poor environment
 eeprom_data[0x18] = 0x03  # minimum range hi byte (feet * 0x64) -- set to 5
 eeprom_data[0x19] = 0xe8  # minimum range lo byte
-eeprom_data[0x1a] = 0x00
-eeprom_data[0x1b] = 0x00
+eeprom_data[0x1a] = 0x00  # ??? set to 01 does not affect poor environment
+eeprom_data[0x1b] = 0x00  # ??? set to 01 does not affect poor environment
 eeprom_data[0x1c] = 0x27  # max range hi byte (feet * 0x64) -- set to 100
 eeprom_data[0x1d] = 0x10  # max range lo byte
 eeprom_data[0x1e] = 0x00  # delta speed KPH (kph * 10) -- set to 3
@@ -181,8 +134,8 @@ eeprom_data[0x1f] = 0x1e  # delta speed KPH
 
 eeprom_data[0x20] = 0x4b  # baud rate hi byte  19200=>4b, 9600=>25, 4800=>12 is literally the baud rate
 eeprom_data[0x21] = 0x00  # baud rate lo byte  19200=>00, 9600=>80, 4800=>c0
-eeprom_data[0x22] = 0x00
-eeprom_data[0x23] = 0x0a  # continuity value
+eeprom_data[0x22] = 0x00  # continuity value MSB
+eeprom_data[0x23] = 0x0a  # continuity value LSB (10)
 eeprom_data[0x24] = 0x00  # minimum number MSB
 eeprom_data[0x25] = 0x2b  # minimum number LSB (43)
 eeprom_data[0x26] = 0x00  # maximum number MSB
@@ -198,100 +151,100 @@ eeprom_data[0x2f] = 0x00  # gun fire timeout LSB (0) # seconds * 25 (!)
 
 eeprom_data[0x30] = 0x01  # filter # 1 min pulse width MSB (0x01)
 eeprom_data[0x31] = 0x1e  # filter # 1 min pulse width MSB (0x14) 28.6 ns
-eeprom_data[0x32] = 0x01
-eeprom_data[0x33] = 0xa0
-eeprom_data[0x34] = 0x00
-eeprom_data[0x35] = 0x02
-eeprom_data[0x36] = 0x78
-eeprom_data[0x37] = 0xd0
-eeprom_data[0x38] = 0x01
-eeprom_data[0x39] = 0x68
-eeprom_data[0x3a] = 0x01
-eeprom_data[0x3b] = 0x4f
-eeprom_data[0x3c] = 0x00
-eeprom_data[0x3d] = 0x02
-eeprom_data[0x3e] = 0x26
-eeprom_data[0x3f] = 0xc8
+eeprom_data[0x32] = 0x01  # filter
+eeprom_data[0x33] = 0xa0  # filter
+eeprom_data[0x34] = 0x00  # filter
+eeprom_data[0x35] = 0x02  # filter
+eeprom_data[0x36] = 0x78  # filter
+eeprom_data[0x37] = 0xd0  # filter
+eeprom_data[0x38] = 0x01  # filter
+eeprom_data[0x39] = 0x68  # filter
+eeprom_data[0x3a] = 0x01  # filter
+eeprom_data[0x3b] = 0x4f  # filter
+eeprom_data[0x3c] = 0x00  # filter
+eeprom_data[0x3d] = 0x02  # filter
+eeprom_data[0x3e] = 0x26  # filter
+eeprom_data[0x3f] = 0xc8  # filter
 
-eeprom_data[0x40] = 0x02
-eeprom_data[0x41] = 0x05
-eeprom_data[0x42] = 0x01
-eeprom_data[0x43] = 0xab
-eeprom_data[0x44] = 0x00
-eeprom_data[0x45] = 0x05
-eeprom_data[0x46] = 0x09
-eeprom_data[0x47] = 0x10
+eeprom_data[0x40] = 0x02  # filter
+eeprom_data[0x41] = 0x05  # filter
+eeprom_data[0x42] = 0x01  # filter
+eeprom_data[0x43] = 0xab  # filter
+eeprom_data[0x44] = 0x00  # filter
+eeprom_data[0x45] = 0x05  # filter
+eeprom_data[0x46] = 0x09  # filter
+eeprom_data[0x47] = 0x10  # filter
 eeprom_data[0x48] = 0x05  # filter # 4 min pulse width MSB (0x05) (140 nsec)
 eeprom_data[0x49] = 0x78  # filter # 4 min pulse width LSB (0x78 = 140 nsec)
-eeprom_data[0x4a] = 0x2c
-eeprom_data[0x4b] = 0x24
+eeprom_data[0x4a] = 0x2c  # filter
+eeprom_data[0x4b] = 0x24  # filter
 eeprom_data[0x4c] = 0x00  # filter # 4 offset MSB
-eeprom_data[0x4d] = 0xf1
-eeprom_data[0x4e] = 0x64
+eeprom_data[0x4d] = 0xf1  # filter
+eeprom_data[0x4e] = 0x64  # filter
 eeprom_data[0x4f] = 0xd9  # filter # 4 offset LSB
 
 eeprom_data[0x50] = 0x00  # range variance minimum 1 MSB
 eeprom_data[0x51] = 0x00  # range variance minimum 1 LSB (0) feet * 10.
-eeprom_data[0x52] = 0xe9
-eeprom_data[0x53] = 0x4c
-eeprom_data[0x54] = 0x66
-eeprom_data[0x55] = 0x2a
-eeprom_data[0x56] = 0x01
-eeprom_data[0x57] = 0xf4
-eeprom_data[0x58] = 0xe9
-eeprom_data[0x59] = 0x4c
-eeprom_data[0x5a] = 0x66
-eeprom_data[0x5b] = 0x2a
-eeprom_data[0x5c] = 0x03
-eeprom_data[0x5d] = 0xe8
-eeprom_data[0x5e] = 0xe9
-eeprom_data[0x5f] = 0x4c
+eeprom_data[0x52] = 0xe9  # range variance
+eeprom_data[0x53] = 0x4c  # range variance
+eeprom_data[0x54] = 0x66  # range variance
+eeprom_data[0x55] = 0x2a  # range variance
+eeprom_data[0x56] = 0x01  # range variance
+eeprom_data[0x57] = 0xf4  # range variance
+eeprom_data[0x58] = 0xe9  # range variance
+eeprom_data[0x59] = 0x4c  # range variance
+eeprom_data[0x5a] = 0x66  # range variance
+eeprom_data[0x5b] = 0x2a  # range variance
+eeprom_data[0x5c] = 0x03  # range variance
+eeprom_data[0x5d] = 0xe8  # range variance
+eeprom_data[0x5e] = 0xe9  # range variance
+eeprom_data[0x5f] = 0x4c  # range variance
 
-eeprom_data[0x60] = 0x66
-eeprom_data[0x61] = 0x2a
-eeprom_data[0x62] = 0x0b
-eeprom_data[0x63] = 0xb8
-eeprom_data[0x64] = 0xe9
-eeprom_data[0x65] = 0x4c
-eeprom_data[0x66] = 0x66
-eeprom_data[0x67] = 0x2a
+eeprom_data[0x60] = 0x66  # range variance
+eeprom_data[0x61] = 0x2a  # range variance
+eeprom_data[0x62] = 0x0b  # range variance
+eeprom_data[0x63] = 0xb8  # range variance
+eeprom_data[0x64] = 0xe9  # range variance
+eeprom_data[0x65] = 0x4c  # range variance
+eeprom_data[0x66] = 0x66  # range variance
+eeprom_data[0x67] = 0x2a  # range variance
 eeprom_data[0x68] = 0x1b  # range variance maximum 4 MSB
 eeprom_data[0x69] = 0x58  # range variance minimum 4 LSB (700) feet * 10.
 eeprom_data[0x6a] = 0xe9  # float value variance 4 MSB
-eeprom_data[0x6b] = 0x4c
-eeprom_data[0x6c] = 0x66
+eeprom_data[0x6b] = 0x4c  # range variance
+eeprom_data[0x6c] = 0x66  # range variance
 eeprom_data[0x6d] = 0x2a  # float value variance 4 LSB (0.199999998765385)
 eeprom_data[0x6e] = 0x00  # range variance maximum 5 MSB
 eeprom_data[0x6f] = 0x00  # range variance maximum 5 LSB
 
-eeprom_data[0x70] = 0x00
-eeprom_data[0x71] = 0x00
-eeprom_data[0x72] = 0x00
-eeprom_data[0x73] = 0x00
-eeprom_data[0x74] = 0x00
-eeprom_data[0x75] = 0x00
-eeprom_data[0x76] = 0x00
-eeprom_data[0x77] = 0x00
-eeprom_data[0x78] = 0x00
-eeprom_data[0x79] = 0x00
-eeprom_data[0x7a] = 0x00
-eeprom_data[0x7b] = 0x00
-eeprom_data[0x7c] = 0x00
-eeprom_data[0x7d] = 0x00
-eeprom_data[0x7e] = 0x00
-eeprom_data[0x7f] = 0x00
+eeprom_data[0x70] = 0x00  # range variance
+eeprom_data[0x71] = 0x00  # range variance
+eeprom_data[0x72] = 0x00  # range variance
+eeprom_data[0x73] = 0x00  # range variance
+eeprom_data[0x74] = 0x00  # range variance
+eeprom_data[0x75] = 0x00  # range variance
+eeprom_data[0x76] = 0x00  # range variance
+eeprom_data[0x77] = 0x00  # range variance
+eeprom_data[0x78] = 0x00  # range variance
+eeprom_data[0x79] = 0x00  # range variance
+eeprom_data[0x7a] = 0x00  # range variance
+eeprom_data[0x7b] = 0x00  # range variance
+eeprom_data[0x7c] = 0x00  # range variance
+eeprom_data[0x7d] = 0x00  # range variance
+eeprom_data[0x7e] = 0x00  # range variance
+eeprom_data[0x7f] = 0x00  # range variance
 
-eeprom_data[0x80] = 0x00
-eeprom_data[0x81] = 0x00
-eeprom_data[0x82] = 0x00
-eeprom_data[0x83] = 0x00
-eeprom_data[0x84] = 0x00
-eeprom_data[0x85] = 0x00
-eeprom_data[0x86] = 0x00
-eeprom_data[0x87] = 0x00
-eeprom_data[0x88] = 0x00
-eeprom_data[0x89] = 0x00
-eeprom_data[0x8a] = 0x00
+eeprom_data[0x80] = 0x00  # range variance
+eeprom_data[0x81] = 0x00  # range variance
+eeprom_data[0x82] = 0x00  # range variance
+eeprom_data[0x83] = 0x00  # range variance
+eeprom_data[0x84] = 0x00  # range variance
+eeprom_data[0x85] = 0x00  # range variance
+eeprom_data[0x86] = 0x00  # range variance
+eeprom_data[0x87] = 0x00  # range variance
+eeprom_data[0x88] = 0x00  # range variance
+eeprom_data[0x89] = 0x00  # range variance
+eeprom_data[0x8a] = 0x00  # range variance
 eeprom_data[0x8b] = 0x00  # end of range/variance data
 eeprom_data[0x8c] = 0x83
 eeprom_data[0x8d] = 0x3a
@@ -330,22 +283,22 @@ eeprom_data[0xab] = 0x01  # reset sample window when 01.
 eeprom_data[0xac] = 0x14  # prefilter count
 eeprom_data[0xad] = 0x0a  # good data % (10)
 eeprom_data[0xae] = 0x02  # number of speeds averaged.
-eeprom_data[0xaf] = 0x01  # clock start compensation, 1 is on, 0 is off.
+eeprom_data[0xaf] = 0x01  # clock start compensation, 1 is on, 0 is off, other bits do not affect poor env mode
 
-eeprom_data[0xb0] = 0x00  # CFAR toggle, 1 is on, 0 is off
+eeprom_data[0xb0] = 0x00  # CFAR toggle, 1 is on, 0 is off, other bits do not affect poor env mode
 eeprom_data[0xb1] = 0x0a  # min range set (single byte value?)  10 feet
 eeprom_data[0xb2] = 0x40  # 64 what?
 eeprom_data[0xb3] = 0x14  # range filter #1, feet -- this is 20
 eeprom_data[0xb4] = 0x3c  # range filter #2, feet -- this is 80
-eeprom_data[0xb5] = 0x82  # bitmapped options: 1000 0010
-                            # 7 10000000 short serial output
-                            # 6 01000000 not used?
-                            # 5 00100000 not used?
-                            # 4 00010000 Italian text
-                            # 3 00001000 camera mode
-                            # 2 00000100 French text
-                            # 1 00000010 disable checksum on lcd
-                            # 0 00000001 enable calculate tac calibrate window (does not stay on)
+eeprom_data[0xb5] = 0x82  # bit-mapped options: 1000 0010
+                        # 7 10000000 short serial output
+                        # 6 01000000 not used? tested, does not affect poor env.
+                        # 5 00100000 not used? tested, does not affect poor env.
+                        # 4 00010000 Italian text
+                        # 3 00001000 camera mode
+                        # 2 00000100 French text
+                        # 1 00000010 disable checksum on lcd
+                        # 0 00000001 enable calculate tac calibrate window (does not stay on)
 eeprom_data[0xb6] = 0x50  # data quality % literal value.
 eeprom_checksum = 0
 for eeaddr in range(0, 0xb7):
@@ -451,13 +404,14 @@ def process_tx_buffer(buffer, verbosity=5):
 
 
 def process_rx_buffer(buffer, verbosity=5):
+    result = None
     global eeprom_data
     global log_all_rx
     if len(buffer) < 5:
         print('message too short: {}: {}'.format(len(buffer), buffer_to_hexes(buffer)))
-        return
+        return None
     if not validate_checksum('rx', buffer):
-        return
+        return None
     buffer = de_escape_message(buffer)
     command = buffer[2]
     if command == CMD_EXIT_REMOTE:
@@ -487,14 +441,17 @@ def process_rx_buffer(buffer, verbosity=5):
     elif command == CMD_READ_EEPROM:
         addr = buffer[4]
         data = buffer[5]
+        result = data
         if verbosity > 4:
             print('rx CMD_READ_EEPROM response address {:02x} data {:02x}'.format(addr, data))
         spaces = ' ' * 20
         if eeprom_data[addr] == -1:
-            print('{}assigning eeprom address {:02x} from {:02x} to {:02x}'.format(spaces, addr, eeprom_data[addr], data))
+            print(
+                '{}assigning eeprom address {:02x} from {:02x} to {:02x}'.format(spaces, addr, eeprom_data[addr], data))
             eeprom_data[addr] = data
         if eeprom_data[addr] != data:
-            print('{}updating eeprom address {:02x} from {:02x} to {:02x}'.format(spaces, addr, eeprom_data[addr], data))
+            print(
+                '{}updating eeprom address {:02x} from {:02x} to {:02x}'.format(spaces, addr, eeprom_data[addr], data))
             eeprom_data[addr] = data
     elif command == CMD_WRITE_EEPROM:
         sub_command = buffer[3]
@@ -520,11 +477,12 @@ def process_rx_buffer(buffer, verbosity=5):
         print('rx CMD_INIT_SPD4 text payload follows:')
         start = 3
         print(hexdump_buffer(buffer[start:-2]))
-        #while buffer[start] < 0x20:
+        # while buffer[start] < 0x20:
         #    start += 1
-        #print(bytes(buffer[start:-2]).decode())
+        # print(bytes(buffer[start:-2]).decode())
     else:
         print('rx unhandled command {:02x} in {}'.format(command, buffer_to_hexes(buffer)))
+    return result
 
 
 def receive_message(port, expect=16, timeouts=5):
@@ -550,6 +508,7 @@ def receive_message(port, expect=16, timeouts=5):
                             expected -= 1
                             escaped = False
                         else:
+                            msg.append(b)  # test test
                             escaped = True
                     else:
                         expected -= 1
@@ -559,14 +518,12 @@ def receive_message(port, expect=16, timeouts=5):
                         else:
                             msg.append(b)
                             if b == END_OF_MESSAGE:
-                                if len(msg) != expect:
-                                    msg_len = msg[1] + 4
-                                    print(
-                                        '   received {} but expected {}, message claims {} message {} '.format(len(msg),
-                                                                                                               expect,
-                                                                                                               msg_len,
-                                                                                                               buffer_to_hexes(
-                                                                                                                   msg)))
+                                if expected != 0:
+                                    print('    **** expected = {}'.format(expected))
+                                    if len(msg) != expect:
+                                        msg_len = msg[1] + 4
+                                        fmt = '   received {} but expected {}, message claims {} message {} '
+                                        print(fmt.format.format(len(msg), expect, msg_len, buffer_to_hexes(msg)))
                                 # print('   called with {} timeouts, {} left'.format(timeouts, timeouts_left))
                                 return msg
         else:
@@ -576,28 +533,33 @@ def receive_message(port, expect=16, timeouts=5):
     return msg
 
 
-def send_receive_command(port, cmd, expect=16, timeouts=1):
+def send_receive_command(port, cmd, expect=16, timeouts=1, verbosity=5):
     port.write(cmd)
-    process_tx_buffer(cmd)
+    process_tx_buffer(cmd, verbosity=verbosity)
     if expect > 0:
         msg = receive_message(port, expect=expect, timeouts=timeouts)
         if len(msg) == 0:
             print('rx: None *********')
+            return None
         else:
-            process_rx_buffer(msg)
-        return msg
+            return process_rx_buffer(msg, verbosity=verbosity)
     else:
         return None
 
 
-def send_1_byte_command(port, b, expect=5, timeouts=1):
+def send_1_byte_command(port, b, expect=5, timeouts=1, verbosity=5):
     cmd = build_message([b])
-    return send_receive_command(port, cmd, expect=expect, timeouts=timeouts)
+    return send_receive_command(port, cmd, expect=expect, timeouts=timeouts, verbosity=verbosity)
 
 
-def send_2_byte_command(port, b0, b1, expect=6, timeouts=1):
+def send_2_byte_command(port, b0, b1, expect=6, timeouts=1, verbosity=5):
     cmd = build_message([b0, b1])
-    return send_receive_command(port, cmd, expect=expect, timeouts=timeouts)
+    return send_receive_command(port, cmd, expect=expect, timeouts=timeouts, verbosity=verbosity)
+
+
+def send_multi_byte_command(port, command, expect=6, timeouts=1, verbosity=5):
+    cmd = build_message(command)
+    return send_receive_command(port, cmd, expect=expect, timeouts=timeouts, verbosity=verbosity)
 
 
 def validate_checksum(name, buffer):
@@ -617,5 +579,3 @@ def validate_checksum(name, buffer):
         print(hexdump_buffer(buffer))
         print('---------------------------------------------------------------------------------------')
         return False
-
-
