@@ -30,8 +30,8 @@ def main():
                                 stopbits=serial.STOPBITS_ONE,
                                 timeout=0)
 
-        tx_buffer = []
-        rx_buffer = []
+        tx_buffer = bytearray()
+        rx_buffer = bytearray()
         tx_escaped = False
         rx_escaped = False
 
