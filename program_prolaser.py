@@ -9,7 +9,7 @@ import pl3
 
 from serialport import SerialPort
 
-eeprom_data = pl3.eeprom_data
+eeprom_data = pl3.get_eeprom_data()
 BAUD_RATE = 19200  # note that this is a function of the EEPROM programming
 
 

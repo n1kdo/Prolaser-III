@@ -9,7 +9,7 @@ import pl3
 
 from serialport import SerialPort
 
-eeprom_data = pl3.eeprom_data
+_eeprom_data = pl3._eeprom_data
 BAUD_RATE = 19200  # note that this is a function of the EEPROM programming
 log_all_rx = False
 
@@ -21,7 +21,8 @@ def main():
     pl3.receive_response(port, expect=expect)
 
     expect = pl3.read_ee(port, 0x01)
-    device_id = pl3.receive_response(port, expect=expect)
+    cmd, result = pl3.receive_response(port, expect=expect)
+    device_id = result[1]
     if device_id != 0x12:
         print('bad device_id {}'.format(device_id))
 
@@ -35,12 +36,16 @@ def main():
     pl3.receive_response(port, expect=expect)
 
     expect = pl3.read_ee(port, 0x01)
-    command, device_id = pl3.receive_response(port, expect=expect)
+    command, result = pl3.receive_response(port, expect=expect)
+    # addr = result[0]
+    device_id = result[1]
     if device_id != 0x12:
         print('bad device_id {:02x}'.format(device_id))
 
     expect = pl3.read_ee(port, 0xa9)
-    command, packet_type = pl3.receive_response(port, expect=expect)
+    command, result = pl3.receive_response(port, expect=expect)
+    packet_type = result[1]
+
     if packet_type != 2:
         print('bad packet type {}'.format(packet_type))
 

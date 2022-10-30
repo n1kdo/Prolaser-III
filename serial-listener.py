@@ -34,6 +34,8 @@ def main():
         rx_buffer = []
         tx_escaped = False
         rx_escaped = False
+
+        eeprom_data = pl3.get_eeprom_data()
         while True:
             while True:
                 buf = tx_port.read(32)
@@ -50,7 +52,16 @@ def main():
                             tx_buffer.clear()
                         tx_buffer.append(b)
                         if b == pl3.END_OF_MESSAGE and not tx_was_escaped:
-                            pl3.process_tx_buffer(tx_buffer, verbosity=verbosity)
+                            cmd, result = pl3.process_tx_buffer(tx_buffer, verbosity=verbosity)
+                            if cmd == pl3.CMD_WRITE_EEPROM:
+                                addr = result[0]
+                                data = result[1]
+                                if eeprom_data[addr] != data:
+                                    print('    eeprom_data[{.02x}] was {:02x}, wrote {:02x}', format(addr,
+                                                                                                     eeprom_data[addr],
+                                                                                                     data))
+                                    eeprom_data[addr] = data
+
                             tx_buffer.clear()
                 else:
                     break
@@ -69,7 +80,15 @@ def main():
                             rx_buffer.clear()
                         rx_buffer.append(b)
                         if b == pl3.END_OF_MESSAGE and not rx_was_escaped:
-                            pl3.process_rx_buffer(rx_buffer, verbosity=verbosity)
+                            cmd, result = pl3.process_rx_buffer(rx_buffer, verbosity=verbosity)
+                            if cmd == pl3.CMD_READ_EEPROM:
+                                addr = result[0]
+                                data = result[1]
+                                if eeprom_data[addr] != data:
+                                    print('    eeprom_data[{.02x}] was {:02x}, read {:02x}', format(addr,
+                                                                                                    eeprom_data[addr],
+                                                                                                    data))
+                                    eeprom_data[addr] = data
                             rx_buffer.clear()
                 else:
                     break
