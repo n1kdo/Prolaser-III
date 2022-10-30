@@ -20,26 +20,25 @@ def main():
     port = SerialPort(baudrate=BAUD_RATE)
 
     expect = pl3.read_ee(port, 0x01)
-    device_id = pl3.receive_response(port, expect=expect)
+    command, device_id = pl3.receive_response(port, expect=expect)
     if device_id != 0x12:
         print('bad device_id {}'.format(device_id))
 
     expect = pl3.set_mode(port, pl3.MODE_RANGE)
     pl3.receive_response(port, expect=expect)
 
-
     pl3.toggle_laser(port)  # if laser is off, nothing is expected...
 
     print('listening...')
     s = time.time() + 10
     while time.time() < s:
-        msg = pl3.receive_response(port, expect=11, timeouts=20)  # receive timeout at 20 ms, so <= 400 msec
-        print(msg)
+        cmd, result = pl3.receive_response(port, expect=11, timeouts=20)  # receive timeout at 20 ms, so <= 400 msec
+        print(result)
 
     # send fire laser toggle command 07
     expect = pl3.toggle_laser(port)  # if laser is off, nothing is expected...
 
-    result = pl3.receive_response(port, expect=expect, timeouts=100)
+    command, result = pl3.receive_response(port, expect=expect, timeouts=100)
     print(result)
     #expect = pl3.exit_remote(port)
     #pl3.receive_response(port, expect=expect)

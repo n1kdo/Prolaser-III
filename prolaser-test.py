@@ -37,7 +37,7 @@ def main():
     expect = pl3.read_ee(port, 0x01)
     command, device_id = pl3.receive_response(port, expect=expect)
     if device_id != 0x12:
-        print('bad device_id {}'.format(device_id))
+        print('bad device_id {:02x}'.format(device_id))
 
     expect = pl3.read_ee(port, 0xa9)
     command, packet_type = pl3.receive_response(port, expect=expect)

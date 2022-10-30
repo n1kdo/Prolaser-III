@@ -52,8 +52,6 @@ THEN...
 
 """
 import sys
-import time
-from buffer_utils import buffer_to_hexes, hexdump_buffer
 
 log_all_rx = False
 
@@ -97,7 +95,7 @@ MODE_RTR = 0x01
 # right now this is both a memory map and a set of defaults.
 #
 EEPROM_LENGTH = 0xb7 + 1
-eeprom_data = [0x00] * EEPROM_LENGTH
+eeprom_data = bytearray(EEPROM_LENGTH)
 
 eeprom_data[0x00] = 0x00
 eeprom_data[0x01] = 0x12  # magic value
@@ -302,9 +300,44 @@ eeprom_data[0xb5] = 0x82  # bit-mapped options: 1000 0010
                         # 0 00000001 enable calculate tac calibrate window (does not stay on)
 eeprom_data[0xb6] = 0x50  # data quality % literal value.
 eeprom_checksum = 0
-for eeaddr in range(0, 0xb7):
-    eeprom_checksum = (eeprom_checksum + eeprom_data[eeaddr]) & 0x00ff
+for address in range(0, 0xb7):
+    eeprom_checksum = (eeprom_checksum + eeprom_data[address]) & 0x00ff
 eeprom_data[0xb7] = eeprom_checksum  # CHECKSUM!
+
+
+def buffer_to_hexes(buffer):
+    return ' '.join('{:02x}'.format(b) for b in buffer)
+
+
+def hexdump_buffer(buffer):
+    result = ''
+    hex_bytes = ''
+    printable = ''
+    offset = 0
+    ofs = '{:04x}'.format(offset)
+    for b in buffer:
+        hex_bytes += '{:02x} '.format(b)
+        printable += chr(b) if 32 <= b <= 126 else '.'
+        offset += 1
+        if len(hex_bytes) >= 48:
+            result += ofs + '  ' + hex_bytes + '  ' + printable +'\n'
+            hex_bytes = ''
+            printable = ''
+            ofs = '{:04x}'.format(offset)
+    if len(hex_bytes) > 0:
+        hex_bytes += ' ' * 47
+        hex_bytes = hex_bytes[0:47]
+        result += ofs + '  ' + hex_bytes + '   ' + printable + '\n'
+    return result
+
+
+def dump_buffer(name, buffer, dump_all=False):
+    if len(buffer) < 5:
+        dump_all = True
+    if dump_all:
+        print('{} message {}'.format(name, buffer_to_hexes(buffer)))
+    else:
+        print('{} payload {}'.format(name, buffer_to_hexes(buffer[2:-2])))
 
 
 def build_message(buffer):
