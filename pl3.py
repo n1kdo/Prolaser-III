@@ -53,8 +53,6 @@ THEN...
 """
 import sys
 
-log_all_rx = False
-
 # message bytes
 START_OF_MESSAGE = 0x02
 END_OF_MESSAGE = 0x03
@@ -447,7 +445,6 @@ def process_tx_buffer(buffer, verbosity=5):
 def process_rx_buffer(buffer, verbosity=5):
     result = None
     command = None
-    global log_all_rx
     if len(buffer) < 5:
         print('message too short: {}: {}'.format(len(buffer), buffer_to_hexes(buffer)))
         return command, result

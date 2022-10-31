@@ -53,7 +53,6 @@ THEN...
 """
 import sys
 
-log_all_rx = False
 
 # message bytes
 START_OF_MESSAGE = 0x02
@@ -384,7 +383,6 @@ def _unescape_message(message):
 
 
 def process_tx_buffer(buffer, verbosity=5):
-    global log_all_rx
     command = None
     result = None
     if len(buffer) < 5:
@@ -405,7 +403,6 @@ def process_tx_buffer(buffer, verbosity=5):
         print('tx CMD_ENABLE_REMOTE')
     elif command == CMD_TOGGLE_LASER:
         print('tx CMD_TOGGLE_LASER (on/off?)')
-        log_all_rx = True
     elif command == CMD_SET_MODE:
         sub_command = buffer[3]
         result = sub_command
@@ -423,8 +420,7 @@ def process_tx_buffer(buffer, verbosity=5):
             print('tx CMD_READ_EEPROM address {:02x}'.format(addr))
             result = addr
     elif command == CMD_WRITE_EEPROM:
-        sub_command = buffer[3]
-        if sub_command == 0x80:
+        if buffer[3] == 0x80:
             addr = buffer[4]
             data = buffer[5]
             result = (addr, data)
@@ -448,7 +444,6 @@ def process_tx_buffer(buffer, verbosity=5):
 def process_rx_buffer(buffer, verbosity=5):
     result = None
     command = None
-    global log_all_rx
     if len(buffer) < 5:
         print('message too short: {}: {}'.format(len(buffer), buffer_to_hexes(buffer)))
         return command, result
@@ -470,7 +465,6 @@ def process_rx_buffer(buffer, verbosity=5):
     elif command == CMD_TOGGLE_LASER:
         if verbosity > 4:
             print('rx ACK CMD_TOGGLE_LASER (off)')
-        log_all_rx = False
     elif command == CMD_SET_MODE:
         sub_command = buffer[3]
         result = sub_command
@@ -503,7 +497,8 @@ def process_rx_buffer(buffer, verbosity=5):
                                                                                           buffer_to_hexes(buffer)))
     elif command == CMD_READING:
         if buffer[4] == 0xff and buffer[5] == 0x7f:
-            print('rx CMD_READING: {} : {:5.1f} feet'.format(buffer_to_hexes(buffer[3:-2]), buffer[6] / 10.0))
+            if verbosity > 4:
+                print('rx CMD_READING: {} : {:5.1f} feet'.format(buffer_to_hexes(buffer[3:-2]), buffer[6] / 10.0))
             result = (buffer_to_hexes(buffer[3:-2]), buffer[6] / 10.0)
         else:
             warn = 'CMD_READING: {}'.format(buffer_to_hexes(buffer[3:-2]))

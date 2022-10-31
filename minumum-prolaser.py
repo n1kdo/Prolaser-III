@@ -13,7 +13,6 @@ from serialport import SerialPort
 
 _eeprom_data = pl3._eeprom_data
 BAUD_RATE = 19200  # note that this is a function of the EEPROM programming
-log_all_rx = False
 
 
 def main():
