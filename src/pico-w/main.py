@@ -152,6 +152,9 @@ MP_END_BOUND = 4
 # globals...
 laser_mode = pl3.MODE_SPEED
 laser_state = False
+last_speed = 0
+last_range = 0
+MAX_MESSAGES = 100
 messages = []
 morse_message = ''
 restart = False
@@ -442,50 +445,7 @@ async def serve_http_client(reader, writer):
 
             if target == '/':
                 http_status = 301
-                bytes_sent = send_simple_response(writer, http_status, None, None, ['Location: /rotator.html'])
-            elif target == '/api/setmode':
-                mode = args.get('mode')
-                if mode is not None:
-                    mode = safe_int(args.get('mode'), -1)
-                    if mode in [pl3.MODE_SPEED, pl3.MODE_RANGE, pl3.MODE_RTR]:
-                        laser_mode = mode
-                        response = '{{"mode": "{}"}}'.format(laser_mode).encode()
-                        pl3.set_mode(port, mode)
-                        http_status = 200
-                        bytes_sent = send_simple_response(writer, http_status, CT_APP_JSON, response)
-                    else:
-                        http_status = 400
-                        response = b'parameter out of range\r\n'
-                        bytes_sent = send_simple_response(writer, http_status, CT_TEXT_TEXT, response)
-                else:
-                    response = '{{"mode": "{}"}}'.format(laser_mode).encode()
-                    http_status = 200
-                    bytes_sent = send_simple_response(writer, http_status, CT_APP_JSON, response)
-            elif target == '/api/laser':
-                statearg = args.get('state')
-                if statearg is not None:
-                    state = None
-                    statearg = statearg.strip().lower()
-                    if statearg == 'true' or statearg == '1':
-                        state = True
-                    elif statearg == 'false' or statearg == '0':
-                        state = False
-
-                    if state is None:
-                        http_status = 400
-                        response = b'parameter out of range\r\n'
-                        bytes_sent = send_simple_response(writer, http_status, CT_TEXT_TEXT, response)
-                    else:
-                        if state != laser_state:
-                            pl3.toggle_laser(port)
-                            laser_state = state
-                        result = '{{"state": "{}"}}'.format(laser_state).encode()
-                        http_status = 200
-                        bytes_sent = send_simple_response(writer, http_status, CT_APP_JSON, result)
-                else:
-                    result = '{{"state": "{}"}}'.format(laser_state).encode()
-                    http_status = 200
-                    bytes_sent = send_simple_response(writer, http_status, CT_APP_JSON, result)
+                bytes_sent = send_simple_response(writer, http_status, None, None, ['Location: /prolaser.html'])
             elif target == '/api/config':
                 if verb == 'GET':
                     payload = read_config()
@@ -516,6 +476,32 @@ async def serve_http_client(reader, writer):
                 if verb == 'GET':
                     payload = os.listdir(CONTENT_DIR)
                     response = json.dumps(payload).encode('utf-8')
+                    http_status = 200
+                    bytes_sent = send_simple_response(writer, http_status, CT_APP_JSON, response)
+            elif target == '/api/laser':
+                    statearg = args.get('toggle')
+                    print(statearg)
+                    if statearg is not None:
+                        pl3.toggle_laser(port)
+                    result = '{{"state": "{}"}}'.format(laser_state).encode()
+                    http_status = 200
+                    bytes_sent = send_simple_response(writer, http_status, CT_APP_JSON, result)
+            elif target == '/api/mode':
+                mode = args.get('set')
+                if mode is not None:
+                    mode = safe_int(mode, -1)
+                    if mode in [pl3.MODE_SPEED, pl3.MODE_RANGE, pl3.MODE_RTR]:
+                        laser_mode = mode
+                        response = '{{"mode": "{}"}}'.format(laser_mode).encode()
+                        pl3.set_mode(port, mode)
+                        http_status = 200
+                        bytes_sent = send_simple_response(writer, http_status, CT_APP_JSON, response)
+                    else:
+                        http_status = 400
+                        response = b'parameter out of range\r\n'
+                        bytes_sent = send_simple_response(writer, http_status, CT_TEXT_TEXT, response)
+                else:
+                    response = '{{"mode": "{}"}}'.format(laser_mode).encode()
                     http_status = 200
                     bytes_sent = send_simple_response(writer, http_status, CT_APP_JSON, response)
             elif target == '/api/upload_file':
@@ -666,6 +652,17 @@ async def serve_http_client(reader, writer):
                 response = b'ok\r\n'
                 http_status = 200
                 bytes_sent = send_simple_response(writer, http_status, CT_TEXT_TEXT, response)
+            elif target == '/api/status':
+                payload = {'timestamp': get_timestamp(),
+                           'laser_mode': laser_mode,
+                           'laser_state': laser_state,
+                           'last_speed': last_speed,
+                           'last_range': last_range,
+                           'messages': messages,
+                           }
+                response = json.dumps(payload).encode('utf-8')
+                http_status = 200
+                bytes_sent = send_simple_response(writer, http_status, CT_APP_JSON, response)
             else:
                 content_file = target[1:] if target[0] == '/' else target
                 bytes_sent, http_status = serve_content(writer, content_file)
@@ -698,6 +695,7 @@ async def morse_sender():
 
 
 async def pl3_receiver():
+    global laser_state, last_speed, last_range, messages
     rx_buffer = bytearray()
     rx_escaped = False
     while True:
@@ -716,6 +714,14 @@ async def pl3_receiver():
                 rx_buffer.append(b)
                 if b == pl3.END_OF_MESSAGE and not rx_was_escaped:
                     cmd, result = pl3.process_rx_buffer(rx_buffer, verbosity=5)
+                    if cmd == pl3.CMD_TOGGLE_LASER:
+                        laser_state = False
+                    elif cmd == pl3.CMD_READING:
+                        laser_state = True
+                        last_range = result[1]
+                    messages.append('{} {:02x} - {}'.format(get_timestamp(), cmd, str(result)))
+                    if len(messages) > MAX_MESSAGES:
+                        messages = messages[-MAX_MESSAGES:]
                     rx_buffer = bytearray()
         else:
             await asyncio.sleep(0.040)

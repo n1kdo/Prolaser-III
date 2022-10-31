@@ -49,7 +49,7 @@ def main():
                             if b == pl3.MESSAGE_ESCAPE:
                                 tx_escaped = True
                         if b == pl3.START_OF_MESSAGE and len(tx_buffer) > 0 and tx_buffer[0] != pl3.START_OF_MESSAGE:
-                            tx_buffer.clear()
+                            tx_buffer = bytearray()
                         tx_buffer.append(b)
                         if b == pl3.END_OF_MESSAGE and not tx_was_escaped:
                             cmd, result = pl3.process_tx_buffer(tx_buffer, verbosity=verbosity)
@@ -61,8 +61,7 @@ def main():
                                                                                                      eeprom_data[addr],
                                                                                                      data))
                                     eeprom_data[addr] = data
-
-                            tx_buffer.clear()
+                            tx_buffer = bytearray()
                 else:
                     break
             while True:
@@ -77,7 +76,7 @@ def main():
                             if b == pl3.MESSAGE_ESCAPE:
                                 rx_escaped = True
                         if b == pl3.START_OF_MESSAGE and len(rx_buffer) > 0 and rx_buffer[0] != pl3.START_OF_MESSAGE:
-                            rx_buffer.clear()
+                            rx_buffer = bytearray()
                         rx_buffer.append(b)
                         if b == pl3.END_OF_MESSAGE and not rx_was_escaped:
                             cmd, result = pl3.process_rx_buffer(rx_buffer, verbosity=verbosity)
@@ -89,7 +88,7 @@ def main():
                                                                                                     eeprom_data[addr],
                                                                                                     data))
                                     eeprom_data[addr] = data
-                            rx_buffer.clear()
+                            rx_buffer = bytearray()
                 else:
                     break
 

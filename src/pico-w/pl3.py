@@ -444,6 +444,7 @@ def process_tx_buffer(buffer, verbosity=5):
         command = None
     return command, result
 
+
 def process_rx_buffer(buffer, verbosity=5):
     result = None
     command = None
@@ -458,14 +459,17 @@ def process_rx_buffer(buffer, verbosity=5):
     if command == CMD_EXIT_REMOTE:
         if verbosity > 4:
             print('rx ACK CMD_EXIT_REMOTE')
+        result = 'ACK CMD_EXIT_REMOTE'
     elif command == CMD_READ_RAM:
         print('rx CMD_READ_RAM response: {}'.format(buffer_to_hexes(buffer)))
         result = buffer[3:-2]
     elif command == CMD_ENABLE_REMOTE:
         if verbosity > 4:
             print('rx ACK CMD_ENABLE_REMOTE')
+        result = 'ACK CMD_ENABLE_REMOTE'
     elif command == CMD_TOGGLE_LASER:
-        print('rx ACK CMD_TOGGLE_LASER (off)')
+        if verbosity > 4:
+            print('rx ACK CMD_TOGGLE_LASER (off)')
         log_all_rx = False
     elif command == CMD_SET_MODE:
         sub_command = buffer[3]
@@ -491,6 +495,7 @@ def process_rx_buffer(buffer, verbosity=5):
         sub_command = buffer[3]
         if sub_command == 0x00:
             addr = buffer[4]
+            result = addr
             if verbosity > 4:
                 print('rx CMD_WRITE_EEPROM response {:02x}'.format(addr))
         else:
@@ -499,24 +504,27 @@ def process_rx_buffer(buffer, verbosity=5):
     elif command == CMD_READING:
         if buffer[4] == 0xff and buffer[5] == 0x7f:
             print('rx CMD_READING: {} : {:5.1f} feet'.format(buffer_to_hexes(buffer[3:-2]), buffer[6] / 10.0))
-            result = '{} {}'.format(buffer_to_hexes(buffer[3:-2]), buffer[6] / 10.0)
+            result = (buffer_to_hexes(buffer[3:-2]), buffer[6] / 10.0)
         else:
-            print('rx CMD_READING: {}'.format(buffer_to_hexes(buffer[3:-2])))
+            warn = 'CMD_READING: {}'.format(buffer_to_hexes(buffer[3:-2]))
+            print('rx ' + warn)
+            result = warn
     elif command == CMD_INIT_SPD23:
         print('rx CMD_INIT_SPD23 text payload follows:')
         start = 3
         while buffer[start] < 0x20:
             start += 1
-        print(bytes(buffer[start:-2]).decode())
+        stuff = buffer[start:-2]
+        print(stuff)
+        result = stuff
     elif command == CMD_INIT_SPD4:
         print('rx CMD_INIT_SPD4 text payload follows:')
-        start = 3
-        print(hexdump_buffer(buffer[start:-2]))
-        # while buffer[start] < 0x20:
-        #    start += 1
-        # print(bytes(buffer[start:-2]).decode())
+        print(hexdump_buffer(buffer[3:-2]))
+        result = buffer_to_hexes(buffer[3:-2])
     else:
-        print('rx unhandled command {:02x} in {}'.format(command, buffer_to_hexes(buffer)))
+        warn = 'unhandled command {:02x} in {}'.format(command, buffer_to_hexes(buffer))
+        print('rx {}'.format(warn))
+        result = warn
     return command, result
 
 
