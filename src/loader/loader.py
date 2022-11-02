@@ -17,7 +17,7 @@ FILES_LIST = [
     'pl3.py',
     'serialport.py',
     'content/files.html',
-    'content/rotator.html',
+    'content/prolaser.html',
     'content/setup.html',
     'data/config.json',
 ]

@@ -79,10 +79,10 @@ CT_MULTIPART_FORM = 'multipart/form-data'
 DANGER_ZONE_FILE_NAMES = [
     'config.html',
     'files.html',
-    'rotator.html',
+    'prolaser.html',
 ]
-DEFAULT_SECRET = 'NorthSouth'
-DEFAULT_SSID = 'Rotator'
+DEFAULT_SECRET = 'lidar'
+DEFAULT_SSID = 'lidar'
 DEFAULT_TCP_PORT = 73
 DEFAULT_WEB_PORT = 80
 FILE_EXTENSION_TO_CONTENT_TYPE_MAP = {
