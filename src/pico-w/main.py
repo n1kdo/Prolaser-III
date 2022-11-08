@@ -47,7 +47,7 @@ if upython:
 else:
     import asyncio
 
-    class Machine:
+    class Machine(object):
         """
         fake micropython stuff
         """
@@ -55,18 +55,36 @@ else:
         @staticmethod
         def soft_reset():
             print('Machine.soft_reset()')
-
-
     machine = Machine()
+
+"""
+        class Pin(object):
+            OUT = 1
+            IN = 0
+            PULL_UP = 0
+
+            def __init__(self, name, options=0, value=0):
+                self.value = value
+                pass
+
+            def on(self):
+                self.value = 1
+                pass
+
+            def off(self):
+                self.value = 0
+
+            def value(self):
+                return self.value
+"""
+
 
 if upython:
     onboard = machine.Pin('LED', machine.Pin.OUT, value=0)
     onboard.on()
     blinky = machine.Pin(2, machine.Pin.OUT, value=0)  # status LED
     button = machine.Pin(3, machine.Pin.IN, machine.Pin.PULL_UP)
-    ap_mode = button.value() == 0
-else:
-    ap_mode = False
+
 
 BUFFER_SIZE = 4096
 CONFIG_FILE = 'data/config.json'
@@ -81,7 +99,7 @@ DANGER_ZONE_FILE_NAMES = [
     'files.html',
     'prolaser.html',
 ]
-DEFAULT_SECRET = 'lidar'
+DEFAULT_SECRET = 'prolaser3'
 DEFAULT_SSID = 'lidar'
 DEFAULT_TCP_PORT = 73
 DEFAULT_WEB_PORT = 80
@@ -126,7 +144,7 @@ MORSE_PATTERNS = {  # sparse to save space
     'E': [MORSE_DIT],
     #  'I': [MORSE_DIT, MORSE_DIT],
     #  'S': [MORSE_DIT, MORSE_DIT, MORSE_DIT],
-    'R': [MORSE_DIT, MORSE_DAH, MORSE_DIT ],
+    'R': [MORSE_DIT, MORSE_DAH, MORSE_DIT],
     #  'H': [MORSE_DIT, MORSE_DIT, MORSE_DIT, MORSE_DIT],
     #  'O': [MORSE_DAH, MORSE_DAH, MORSE_DAH],
     #  'N': [MORSE_DAH, MORSE_DIT],
@@ -161,13 +179,15 @@ restart = False
 port = None
 
 
-def get_timestamp():
-    tt = time.gmtime()
+def get_timestamp(tt=None):
+    if tt is None:
+        tt = time.gmtime()
     return '{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}Z'.format(tt[0], tt[1], tt[2], tt[3], tt[4], tt[5])
 
 
-def get_iso_8601_timestamp():
-    tt = time.gmtime()
+def get_iso_8601_timestamp(tt=None):
+    if tt is None:
+        tt = time.gmtime()
     return '{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}+00:00'.format(tt[0], tt[1], tt[2], tt[3], tt[4], tt[5])
 
 
@@ -273,6 +293,9 @@ def connect_to_network(ssid, secret, access_point_mode=False):
         wlan = network.WLAN(network.AP_IF)
         wlan.active(False)
         wlan.config(pm=0xa11140)  # disable power save, this is a server.
+
+        # wlan.ifconfig(('10.0.0.1', '255.255.255.0', '0.0.0.0', '0.0.0.0'))
+
         """
         #define CYW43_AUTH_OPEN (0)                     ///< No authorisation required (open)
         #define CYW43_AUTH_WPA_TKIP_PSK   (0x00200002)  ///< WPA authorisation
@@ -311,7 +334,7 @@ def connect_to_network(ssid, secret, access_point_mode=False):
 
     status = wlan.ifconfig()
     ip_address = status[0]
-    morse_message = 'A {} '.format(ip_address) if ap_mode else '{} '.format(ip_address)
+    morse_message = 'A  {}  '.format(ip_address) if access_point_mode else '{} '.format(ip_address)
     morse_message = morse_message.replace('.', ' ')
     print(morse_message)
     return ip_address
@@ -338,7 +361,6 @@ async def serve_serial_client(reader, writer):
     all commands start with 'A'
     all commands end with ';' or CR (ascii 13)
     """
-    requested = -1
     t0 = milliseconds()
     partner = writer.get_extra_info('peername')[0]
     print('\nserial client connected from {}'.format(partner))
@@ -371,14 +393,17 @@ async def serve_serial_client(reader, writer):
 async def serve_http_client(reader, writer):
     global laser_mode, laser_state
     global restart
+    verbosity = 3
     t0 = milliseconds()
     http_status = 418  # can only make tea, sorry.
     bytes_sent = 0
     partner = writer.get_extra_info('peername')[0]
-    print('\nweb client connected from {}'.format(partner))
+    if verbosity >= 4:
+        print('\nweb client connected from {}'.format(partner))
     request_line = await reader.readline()
     request = request_line.decode().strip()
-    print(request)
+    if verbosity >= 4:
+        print(request)
     pieces = request.split(' ')
     if len(pieces) != 3:  # does the http request line look approximately correct?
         http_status = 400
@@ -460,9 +485,11 @@ async def serve_http_client(reader, writer):
                     web_port_int = safe_int(web_port, -2)
                     ssid = args.get('SSID') or ''
                     secret = args.get('secret') or ''
+                    ap_mode = True if args.get('ap_mode', '0') == '1' else False
                     if 0 <= web_port_int <= 65535 and 0 <= tcp_port_int <= 65535 and 0 < len(ssid) <= 64 and len(
                             secret) < 64 and len(args) == 4:
-                        config = {'SSID': ssid, 'secret': secret, 'tcp_port': tcp_port, 'web_port': web_port}
+                        config = {'SSID': ssid, 'secret': secret, 'tcp_port': tcp_port, 'web_port': web_port,
+                                  'ap_mode': ap_mode}
                         # config = json.dumps(args)
                         save_config(config)
                         response = b'ok\r\n'
@@ -479,13 +506,12 @@ async def serve_http_client(reader, writer):
                     http_status = 200
                     bytes_sent = send_simple_response(writer, http_status, CT_APP_JSON, response)
             elif target == '/api/laser':
-                    statearg = args.get('toggle')
-                    print(statearg)
-                    if statearg is not None:
-                        pl3.toggle_laser(port)
-                    result = '{{"state": "{}"}}'.format(laser_state).encode()
-                    http_status = 200
-                    bytes_sent = send_simple_response(writer, http_status, CT_APP_JSON, result)
+                toggle = args.get('toggle')
+                if toggle is not None:
+                    pl3.toggle_laser(port, verbosity=verbosity)
+                result = '{{"state": "{}"}}'.format(laser_state).encode()
+                http_status = 200
+                bytes_sent = send_simple_response(writer, http_status, CT_APP_JSON, result)
             elif target == '/api/mode':
                 mode = args.get('set')
                 if mode is not None:
@@ -493,7 +519,7 @@ async def serve_http_client(reader, writer):
                     if mode in [pl3.MODE_SPEED, pl3.MODE_RANGE, pl3.MODE_RTR]:
                         laser_mode = mode
                         response = '{{"mode": "{}"}}'.format(laser_mode).encode()
-                        pl3.set_mode(port, mode)
+                        pl3.set_mode(port, mode, verbosity=verbosity)
                         http_status = 200
                         bytes_sent = send_simple_response(writer, http_status, CT_APP_JSON, response)
                     else:
@@ -634,8 +660,8 @@ async def serve_http_client(reader, writer):
                     newname = CONTENT_DIR + newname
                     try:
                         os.remove(newname)
-                    except OSError as ose:
-                        pass
+                    except OSError:
+                        pass  # swallow exception.  TODO perhaps test first.
                     try:
                         os.rename(filename, newname)
                         http_status = 200
@@ -670,9 +696,13 @@ async def serve_http_client(reader, writer):
     await writer.drain()
     writer.close()
     await writer.wait_closed()
-    tc = milliseconds()
-    print('{} {} {} {}'.format(partner, request, http_status, bytes_sent))
-    print('web client disconnected, elapsed time {} ms'.format(tc - t0))
+    elapsed = milliseconds() - t0
+    if http_status == 200:
+        if verbosity > 2:
+            print('{} {} {} {} {} ms'.format(partner, request, http_status, bytes_sent, elapsed))
+    else:
+        if verbosity >= 1:
+            print('{} {} {} {} {} ms'.format(partner, request, http_status, bytes_sent, elapsed))
     gc.collect()
 
 
@@ -694,8 +724,8 @@ async def morse_sender():
                 await asyncio.sleep(MORSE_ESP if len(blink_list) > 0 else MORSE_LSP)
 
 
-async def pl3_receiver():
-    global laser_state, last_speed, last_range, messages
+async def pl3_receiver(verbosity=4):
+    global laser_mode, laser_state, last_speed, last_range, messages
     rx_buffer = bytearray()
     rx_escaped = False
     while True:
@@ -713,13 +743,19 @@ async def pl3_receiver():
                     rx_buffer.clear()
                 rx_buffer.append(b)
                 if b == pl3.END_OF_MESSAGE and not rx_was_escaped:
-                    cmd, result = pl3.process_rx_buffer(rx_buffer, verbosity=5)
+                    cmd, result = pl3.process_rx_buffer(rx_buffer, verbosity=verbosity)
                     if cmd == pl3.CMD_TOGGLE_LASER:
                         laser_state = False
                     elif cmd == pl3.CMD_READING:
                         laser_state = True
                         last_range = result[1]
-                    messages.append('{} {:02x} - {}'.format(get_timestamp(), cmd, str(result)))
+                        last_speed = result[2]
+                        if last_speed != 0:
+                            laser_mode = pl3.MODE_SPEED
+                        else:
+                            laser_mode = pl3.MODE_RANGE
+                    message = '{} {:02x} - {}'.format(get_timestamp(), cmd, str(result))
+                    messages.append(message)
                     if len(messages) > MAX_MESSAGES:
                         messages = messages[-MAX_MESSAGES:]
                     rx_buffer = bytearray()
@@ -728,7 +764,7 @@ async def pl3_receiver():
 
 
 async def main():
-    global port
+    global port, restart
     config = read_config()
     tcp_port = safe_int(config.get('tcp_port') or DEFAULT_TCP_PORT, DEFAULT_TCP_PORT)
     if tcp_port < 0 or tcp_port > 65535:
@@ -742,6 +778,7 @@ async def main():
     secret = config.get('secret') or ''
     if len(secret) > 64:
         secret = ''
+    ap_mode = config.get('ap_mode', False)
 
     connected = True
     if upython:
@@ -752,11 +789,17 @@ async def main():
             connected = False
             print(type(ex), ex)
 
+    if upython:
+        asyncio.create_task(morse_sender())
+
     port = SerialPort(baudrate=19200, timeout=0)
 
     if connected:
         ntp_time = ntp.get_ntp_time()
-        print('Got time from NTP: {}'.format(get_timestamp()))
+        if ntp_time is None:
+            print('ntp time query failed.  clock may be inaccurate.')
+        else:
+            print('Got time from NTP: {}'.format(get_timestamp()))
         print('Starting web service on port {}'.format(web_port))
         asyncio.create_task(asyncio.start_server(serve_http_client, '0.0.0.0', web_port))
         print('Starting tcp service on port {}'.format(tcp_port))
@@ -769,10 +812,19 @@ async def main():
     if upython:
         asyncio.create_task(morse_sender())
 
+    last_pressed = button.value() == 0
     while True:
         if upython:
             await asyncio.sleep(0.25)
-            if restart or (button.value() == 0 and not ap_mode):
+            pressed = button.value() == 0
+            if not last_pressed and pressed:  # look for activating edge
+                ap_mode = not ap_mode
+                config['ap_mode'] = ap_mode
+                save_config(config)
+                restart = True
+            last_pressed = pressed
+
+            if restart:
                 machine.soft_reset()
         else:
             await asyncio.sleep(10.0)

@@ -3,7 +3,7 @@
 <!-- Copyright 2022, J. B. Otterson N1KDO. -->
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=0.8, minimum-scale=0.5, maximum-scale=2.0">
-    <title>Web Rotator Control</title>
+    <title>Prolaser III Console</title>
 </head>
 <style>
     .author {
@@ -14,13 +14,11 @@
         top: 342px;
         width: 248px;
     }
-
     .author a:link, .author a:visited, .author a:hover {
         color: black;
         text-decoration: none;
     }
-
-    .bearing_readout {
+    .readout {
         background-color: #eff;
         border-radius: 16px;
         border-style: double;
@@ -28,8 +26,9 @@
         font-weight: bold;
         font-size: 64px;
         margin: 5px 30px;
+        padding: 0 10px;
+        text-align: right;
     }
-
     body {
         background-color: #ddd;
         border-style: double;
@@ -38,25 +37,21 @@
         height: 350px;
         width: 500px;
     }
-
     .header {
         text-align: center;
         font-size: 24pt;
         font-weight: bold;
         border-bottom: 24px;
     }
-
     /* ensures the increment/decrement arrows always display */
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button {
         opacity: 1;
     }
-
     #laser_button {
         border-radius: 4px;
         font-size: 18px;
     }
-
     #laser_button:hover {
         border-color: yellow;
     }
@@ -65,42 +60,31 @@
         text-align: center;
         width: 250px;
     }
-
     #messages_textarea {
         font-family: monospace;
         height: 160px;
         width: 220px;
     }
-
     .right_column {
         float: left;
         text-align: center;
         width: 250px;
     }
-
     /* Clear floats after the columns */
     .row:after {
         content: "";
         display: table;
         clear: both;
     }
-
-    .readout_header {
-        font-weight: bold;
-        margin: 0;
-    }
-
     div.refresh_radio {
         border: 1px solid black;
         margin: 0px 50px;
         text-align: left;
     }
-
     .refresh_radio_label {
         font-weight: bold;
         text-align: center;
     }
-
     .mode_button {
         background: transparent;
         border: none;
@@ -108,10 +92,8 @@
         font-weight: bold;
         text-align: center;
     }
-
     .mode_button:hover {
     }
-
     .setup {
         font-size: 8pt;
         font-weight: bold;
@@ -121,12 +103,10 @@
         top: 340px;
         width: 2px;
     }
-
     .setup a:link, .setup a:visited, .setup a:hover {
         color: blue;
         text-decoration: none;
     }
-
     .timestamp {
         margin: 0;
         font-size: 12pt;
@@ -205,8 +185,8 @@
         }
 
         document.getElementById("laser_button").style.color = new_laser_state == true ? "red" : "black";
-        document.getElementById("range_mode_button").style.color = laser_mode == 3 ? "red" : "blue";
-        document.getElementById("speed_mode_button").style.color = laser_mode == 0 ? "red" : "blue";
+        document.getElementById("range_mode_button").style.color = laser_mode == 3 ? "red" : "#008";
+        document.getElementById("speed_mode_button").style.color = laser_mode == 0 ? "red" : "#008";
         document.getElementById("current_range").innerHTML = last_range;
         document.getElementById("current_speed").innerHTML = last_speed;
         document.getElementById("timestamp").innerHTML = timestamp;
@@ -281,7 +261,7 @@
 <div class="timestamp"><p class="timestamp" id="timestamp"></p></div>
 <div class="row">
     <div class="left_column">
-        <p class="bearing_readout" id="current_range">&nbsp;</p>
+        <p class="readout" id="current_range">&nbsp;</p>
         <input type="button" onclick="set_mode(3)" value="Range" id="range_mode_button" class="mode_button"/>
         <div class="messages">
             <textarea id="messages_textarea"></textarea>
@@ -289,7 +269,7 @@
         <div class="setup"><a href="/setup.html">Setup</a></div>
     </div>
     <div class="right_column">
-        <p class="bearing_readout" id="current_speed">&nbsp;</p>
+        <p class="readout" id="current_speed">&nbsp;</p>
         <input type="button" onclick="set_mode(0)" value="Speed" id="speed_mode_button" class="mode_button"/>
         <p>
             <button type="button" name="toggle_laser" value="toggle_laser" id="laser_button" onclick="toggle_laser()">Toggle Laser</button>

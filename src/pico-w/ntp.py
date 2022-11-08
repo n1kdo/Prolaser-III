@@ -1,8 +1,10 @@
-from socket import AF_INET, SOCK_DGRAM
-import sys
 import socket
 import struct
+import sys
 import time
+
+if sys.implementation.name == 'micropython':
+    import machine
 
 UNIX_EPOCH = 2208988800  # 1970-01-01 00:00:00
 
@@ -10,13 +12,18 @@ UNIX_EPOCH = 2208988800  # 1970-01-01 00:00:00
 def get_ntp_time(host='pool.ntp.org'):
     port = 123
     buf = 1024
-    address = (socket.getaddrinfo(host, port)[0][-1])
-    msg = b'\x1b' + 47 * b'\0'
+    try:
+        address = (socket.getaddrinfo(host, port)[0][-1])
+        msg = b'\x1b' + 47 * b'\0'
 
-    # connect to server
-    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    client.sendto(msg, address)
-    msg, address = client.recvfrom(buf)
+        # connect to server
+        client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        client.settimeout(5)
+        client.sendto(msg, address)
+        msg, address = client.recvfrom(buf)
+    except OSError as ose:
+        print(ose)
+        return None
 
     t = struct.unpack('!12I', msg)[10]
     # reference time (in seconds since 1900-01-01 00:00:00)

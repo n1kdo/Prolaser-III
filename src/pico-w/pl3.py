@@ -394,24 +394,32 @@ def process_tx_buffer(buffer, verbosity=5):
     buffer = _unescape_message(buffer)
     command = buffer[2]
     if command == CMD_EXIT_REMOTE:
-        print('tx CMD_EXIT_REMOTE')
+        if verbosity >= 4:
+            print('tx CMD_EXIT_REMOTE')
     elif command == CMD_WHO_ARE_YOU:
-        print('tx CMD_WHO_ARE_YOU')
+        if verbosity >= 4:
+            print('tx CMD_WHO_ARE_YOU')
     elif command == CMD_READ_RAM:
-        print('tx CMD_READ_RAM: {}'.format(buffer_to_hexes(buffer)))
+        if verbosity >= 4:
+            print('tx CMD_READ_RAM: {}'.format(buffer_to_hexes(buffer)))
     elif command == CMD_ENABLE_REMOTE:
-        print('tx CMD_ENABLE_REMOTE')
+        if verbosity >= 4:
+            print('tx CMD_ENABLE_REMOTE')
     elif command == CMD_TOGGLE_LASER:
-        print('tx CMD_TOGGLE_LASER (on/off?)')
+        if verbosity >= 4:
+            print('tx CMD_TOGGLE_LASER (on/off?)')
     elif command == CMD_SET_MODE:
         sub_command = buffer[3]
         result = sub_command
         if sub_command == MODE_SPEED:
-            print('tx CMD_SET_MODE Speed')
+            if verbosity >= 4:
+                print('tx CMD_SET_MODE Speed')
         elif sub_command == MODE_RTR:
-            print('tx CMD_SET_MODE RTR')
+            if verbosity >= 4:
+                print('tx CMD_SET_MODE RTR')
         elif sub_command == MODE_RANGE:
-            print('tx CMD_SET_MODE_RANGE Set mode Range')
+            if verbosity >= 4:
+                print('tx CMD_SET_MODE_RANGE Set mode Range')
         else:
             print('tx CMD_SET_MODE_RANGE unknown mode {:02x}'.format(sub_command))
     elif command == CMD_READ_EEPROM:
@@ -434,7 +442,8 @@ def process_tx_buffer(buffer, verbosity=5):
         else:
             print('tx unhandled command {:02x} in {}'.format(command, buffer_to_hexes(buffer)))
     elif command == CMD_RESET:
-        print('tx CMD_RESET')
+        if verbosity >= 4:
+            print('tx CMD_RESET')
     else:
         print('tx unhandled command {:02x} in {}'.format(command, buffer_to_hexes(buffer)))
         command = None
@@ -496,26 +505,30 @@ def process_rx_buffer(buffer, verbosity=5):
             print('rx CMD_WRITE_EEPROM response unhandled subcommand {:02x} in {}'.format(sub_command,
                                                                                           buffer_to_hexes(buffer)))
     elif command == CMD_READING:
-        if buffer[4] == 0xff and buffer[5] == 0x7f:
-            if verbosity > 4:
-                print('rx CMD_READING: {} : {:5.1f} feet'.format(buffer_to_hexes(buffer[3:-2]), buffer[6] / 10.0))
-            result = (buffer_to_hexes(buffer[3:-2]), buffer[6] / 10.0)
+        if buffer[8] == 0x01:
+            speed = buffer[4] if buffer[4] != 0xff else 0
+            rng = (buffer[6] + 256 * buffer[7]) / 10.0
+            if verbosity > 2:
+                print('rx CMD_READING: {} : {:5.1f} feet {} mph'.format(buffer_to_hexes(buffer[3:-2]), rng, speed))
+            result = (buffer_to_hexes(buffer[3:-2]), rng, speed)
         else:
             warn = 'CMD_READING: {}'.format(buffer_to_hexes(buffer[3:-2]))
             print('rx ' + warn)
             result = warn
     elif command == CMD_INIT_SPD23:
-        print('rx CMD_INIT_SPD23 text payload follows:')
         start = 3
         while buffer[start] < 0x20:
             start += 1
         stuff = buffer[start:-2]
-        print(stuff)
+        if verbosity > 3:
+            print('rx CMD_INIT_SPD23 text payload follows:')
+            print(stuff)
         result = stuff
     elif command == CMD_INIT_SPD4:
-        print('rx CMD_INIT_SPD4 text payload follows:')
-        print(hexdump_buffer(buffer[3:-2]))
-        result = buffer_to_hexes(buffer[3:-2])
+        if verbosity > 3:
+            print('rx CMD_INIT_SPD4 text payload follows:')
+            print(hexdump_buffer(buffer[3:-2]))
+        result = str(buffer[3:-2])
     else:
         warn = 'unhandled command {:02x} in {}'.format(command, buffer_to_hexes(buffer))
         print('rx {}'.format(warn))
