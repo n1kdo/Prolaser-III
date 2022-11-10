@@ -809,9 +809,6 @@ async def main():
 
     asyncio.create_task(pl3_receiver())
 
-    if upython:
-        asyncio.create_task(morse_sender())
-
     last_pressed = button.value() == 0
     while True:
         if upython:
