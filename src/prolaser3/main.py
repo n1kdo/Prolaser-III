@@ -133,34 +133,34 @@ HTTP_STATUS_TEXT = {
     502: 'Bad Gateway',
     503: 'Service Unavailable',
 }
-MORSE_PERIOD = 0.150  # the speed of the morse code is set by the dit length of 150 ms.
+MORSE_PERIOD = 15  # x 10 to MS: the speed of the morse code is set by the dit length of 150 ms.
 MORSE_DIT = MORSE_PERIOD
 MORSE_ESP = MORSE_DIT  # inter-element space
 MORSE_DAH = 3 * MORSE_PERIOD
-MORSE_LSP = 5 * MORSE_PERIOD  # farnsworth-ish , was MORSE_DAH  # inter-letter space
+MORSE_LSP = 5 * MORSE_PERIOD  # more space between letters
 MORSE_PATTERNS = {  # sparse to save space
-    'A': [MORSE_DIT, MORSE_DAH],
-    #  'C': [MORSE_DAH, MORSE_DIT, MORSE_DAH, MORSE_DIT],
-    'E': [MORSE_DIT],
-    #  'I': [MORSE_DIT, MORSE_DIT],
-    #  'S': [MORSE_DIT, MORSE_DIT, MORSE_DIT],
-    'R': [MORSE_DIT, MORSE_DAH, MORSE_DIT],
-    #  'H': [MORSE_DIT, MORSE_DIT, MORSE_DIT, MORSE_DIT],
-    #  'O': [MORSE_DAH, MORSE_DAH, MORSE_DAH],
-    #  'N': [MORSE_DAH, MORSE_DIT],
-    #  'D': [MORSE_DAH, MORSE_DIT, MORSE_DIT],
-    #  'B': [MORSE_DAH, MORSE_DIT, MORSE_DIT, MORSE_DIT],
-    '0': [MORSE_DAH, MORSE_DAH, MORSE_DAH, MORSE_DAH, MORSE_DAH],
-    '1': [MORSE_DIT, MORSE_DAH, MORSE_DAH, MORSE_DAH, MORSE_DAH],
-    '2': [MORSE_DIT, MORSE_DIT, MORSE_DAH, MORSE_DAH, MORSE_DAH],
-    '3': [MORSE_DIT, MORSE_DIT, MORSE_DIT, MORSE_DAH, MORSE_DAH],
-    '4': [MORSE_DIT, MORSE_DIT, MORSE_DIT, MORSE_DIT, MORSE_DAH],
-    '5': [MORSE_DIT, MORSE_DIT, MORSE_DIT, MORSE_DIT, MORSE_DIT],
-    '6': [MORSE_DAH, MORSE_DIT, MORSE_DIT, MORSE_DIT, MORSE_DIT],
-    '7': [MORSE_DAH, MORSE_DAH, MORSE_DIT, MORSE_DIT, MORSE_DIT],
-    '8': [MORSE_DAH, MORSE_DAH, MORSE_DAH, MORSE_DIT, MORSE_DIT],
-    '9': [MORSE_DAH, MORSE_DAH, MORSE_DAH, MORSE_DAH, MORSE_DIT],
-    ' ': [0, 0, 0, 0, 0],  # 5 element spaces then a letter space = 10 element pause
+    ' ': (0, 0, 0, 0, 0),  # 5 element spaces then a letter space = 10 element pause  # space is 0x20 ascii
+    '0': (MORSE_DAH, MORSE_DAH, MORSE_DAH, MORSE_DAH, MORSE_DAH),  # 0 is 0x30 ascii
+    '1': (MORSE_DIT, MORSE_DAH, MORSE_DAH, MORSE_DAH, MORSE_DAH),
+    '2': (MORSE_DIT, MORSE_DIT, MORSE_DAH, MORSE_DAH, MORSE_DAH),
+    '3': (MORSE_DIT, MORSE_DIT, MORSE_DIT, MORSE_DAH, MORSE_DAH),
+    '4': (MORSE_DIT, MORSE_DIT, MORSE_DIT, MORSE_DIT, MORSE_DAH),
+    '5': (MORSE_DIT, MORSE_DIT, MORSE_DIT, MORSE_DIT, MORSE_DIT),
+    '6': (MORSE_DAH, MORSE_DIT, MORSE_DIT, MORSE_DIT, MORSE_DIT),
+    '7': (MORSE_DAH, MORSE_DAH, MORSE_DIT, MORSE_DIT, MORSE_DIT),
+    '8': (MORSE_DAH, MORSE_DAH, MORSE_DAH, MORSE_DIT, MORSE_DIT),
+    '9': (MORSE_DAH, MORSE_DAH, MORSE_DAH, MORSE_DAH, MORSE_DIT),
+    'A': (MORSE_DIT, MORSE_DAH),                                    # 'A' is 0x41 ascii
+    #  'C': (MORSE_DAH, MORSE_DIT, MORSE_DAH, MORSE_DIT),
+    'E': (MORSE_DIT, ),
+    #  'I': (MORSE_DIT, MORSE_DIT),
+    #  'S': (MORSE_DIT, MORSE_DIT, MORSE_DIT),
+    'R': (MORSE_DIT, MORSE_DAH, MORSE_DIT),
+    #  'H': (MORSE_DIT, MORSE_DIT, MORSE_DIT, MORSE_DIT),
+    #  'O': (MORSE_DAH, MORSE_DAH, MORSE_DAH),
+    #  'N': (MORSE_DAH, MORSE_DIT),
+    #  'D': (MORSE_DAH, MORSE_DIT, MORSE_DIT),
+    #  'B': (MORSE_DAH, MORSE_DIT, MORSE_DIT, MORSE_DIT),
 }
 MP_START_BOUND = 1
 MP_HEADERS = 2
@@ -718,32 +718,41 @@ async def morse_sender():
             while len(blink_list) > 0:
                 t = blink_list.pop(0)
                 if t > 0:
+                    # blink time is in milliseconds!, but data is in 10 msec
                     blinky.on()
-                    await asyncio.sleep(t)
+                    await asyncio.sleep(t/100)
                     blinky.off()
-                await asyncio.sleep(MORSE_ESP if len(blink_list) > 0 else MORSE_LSP)
+                await asyncio.sleep(MORSE_ESP / 100 if len(blink_list) > 0 else MORSE_LSP / 100)
 
 
 async def pl3_receiver(verbosity=4):
     global laser_mode, laser_state, last_speed, last_range, messages
-    rx_buffer = bytearray()
+    MAX_BUFFER = 256
+    pl3_buffer = bytearray(MAX_BUFFER)
+    buf_size = 0
     rx_escaped = False
+    rx_buf = bytearray(32)
     while True:
-        buf = port.read(32)
-        if len(buf) > 0:
+        rx_bytes = port.readinto(rx_buf)
+        if rx_bytes > 0:
             # pl3.dump_buffer('rx', buf, True)
-            for b in buf:
+            for rxbi in range(rx_bytes):
+                b = rx_buf[rxbi]
                 rx_was_escaped = rx_escaped
                 if rx_escaped:
                     rx_escaped = False
                 else:
                     if b == pl3.MESSAGE_ESCAPE:
                         rx_escaped = True
-                if b == pl3.START_OF_MESSAGE and len(rx_buffer) > 0 and rx_buffer[0] != pl3.START_OF_MESSAGE:
-                    rx_buffer.clear()
-                rx_buffer.append(b)
+                if b == pl3.START_OF_MESSAGE and len(pl3_buffer) > 0 and pl3_buffer[0] != pl3.START_OF_MESSAGE:
+                    buf_size = 0
+                if buf_size < MAX_BUFFER:
+                    pl3_buffer[buf_size] = b
+                    buf_size += 1
+                else:
+                    print('too much data')
                 if b == pl3.END_OF_MESSAGE and not rx_was_escaped:
-                    cmd, result = pl3.process_rx_buffer(rx_buffer, verbosity=verbosity)
+                    cmd, result = pl3.process_rx_buffer(pl3_buffer[:buf_size], verbosity=verbosity)
                     if cmd == pl3.CMD_TOGGLE_LASER:
                         laser_state = False
                     elif cmd == pl3.CMD_READING:
@@ -758,7 +767,8 @@ async def pl3_receiver(verbosity=4):
                     messages.append(message)
                     if len(messages) > MAX_MESSAGES:
                         messages = messages[-MAX_MESSAGES:]
-                    rx_buffer = bytearray()
+                    #buffer = bytearray()
+                    buf_size = 0
         else:
             await asyncio.sleep(0.040)
 
@@ -809,7 +819,9 @@ async def main():
 
     asyncio.create_task(pl3_receiver())
 
-    last_pressed = button.value() == 0
+    if upython:
+        last_pressed = button.value() == 0
+
     while True:
         if upython:
             await asyncio.sleep(0.25)

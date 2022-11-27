@@ -3,13 +3,15 @@
 """
 Kustom Signals Prolaser III serial signal protocol analysis.
 
+reverse engineered from analyzing serial traffic from ulceeprom
+
 Message format
 
 0x02 0x0n 0xqq ... 0xzz 0x03
   ^    ^    ^        ^    ^
   |    |    |        |    +--- always 0x03.  indicates end of message
   |    |    |        +-------- checksum. sum of length byte and all data bytes.
-  |    |    +----------------- data byte/s. value included in checksum.
+  |    |    +----------------- N data byte/s. value included in checksum.
   |    +---------------------- number of bytes in message. value included in checksum.
   +--------------------------- always 0x02.  indicates start of message.
 
@@ -69,6 +71,7 @@ CMD_UNK_04 = 0x04  # sends back message 0 260 bytes
 CMD_WHO_ARE_YOU = 0x05
 CMD_ENABLE_REMOTE = 0x06
 CMD_TOGGLE_LASER = 0x07
+CMK_UNK_08 = 0x08  # sends back message 0 260 bytes
 CMD_UNK_09 = 0x09  # sends back message 0 260 bytes
 CMD_SET_MODE = 0x0a
 CMD_READ_EEPROM = 0x0b
@@ -279,7 +282,7 @@ def get_eeprom_data():
         _eeprom_data[0xa4] = 0x03  # speed type. 01: approaching. 02: receding, 03: both
         _eeprom_data[0xa5] = 0x3c  # update rate (60)
         _eeprom_data[0xa6] = 0x00  # operating mode: 00: speed, 01: RTR, 03: range
-        _eeprom_data[0xa7] = 0x03  # set to 03 when above is 0, literally  (-(param_1[0xa6] != '\0') & 0xfdU) + 3;
+        _eeprom_data[0xa7] = 0x03  # set to 03 when above is 0, literally  (-(eeprom[0xa6] != '\0') & 0xfdU) + 3;
         _eeprom_data[0xa8] = 0x00  # display lock enable when 01
         _eeprom_data[0xa9] = 0x02  # speed packet op code: SPD2: 01, SPD3: 00, SPD4: 02
         _eeprom_data[0xaa] = 0x00  # use first speed delta, value is 01 when selected
@@ -648,7 +651,6 @@ def receive_response(port, expect=16, timeouts=1, verbosity=5):
     if expect > 0:
         msg = receive_message(port, expect=expect, timeouts=timeouts)
         if len(msg) == 0:
-            print('rx: None *********')
             return None, None
         else:
             return process_rx_buffer(msg, verbosity=verbosity)

@@ -35,7 +35,7 @@ class SerialPort:
         else:
             raise RuntimeError('no support for {}.'.format(impl_name))
 
-    def close_port(self):
+    def close(self):
         self.port.close()
 
     def write(self, buffer):
@@ -43,7 +43,9 @@ class SerialPort:
 
     def read(self, size=16):
         buffer = self.port.read(size)
-        if buffer is None:  # micropython machine.UART returns None on timeout.
-            return b''  # cpython pyserial returns empty bytes object
-        else:
-            return buffer
+        return b'' if buffer is None else buffer  # micropython machine.UART returns None on timeout.
+
+    def readinto(self, buf):
+        result = self.port.readinto(buf)
+        return 0 if result is None else result
+

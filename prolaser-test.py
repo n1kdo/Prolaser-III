@@ -3,6 +3,7 @@
 # Prolaser III data collector.
 # collect speed data from Prolaser III
 #
+import sys
 import time
 
 import pl3
@@ -21,12 +22,20 @@ def main():
 
     expect = pl3.read_ee(port, 0x01)
     cmd, result = pl3.receive_response(port, expect=expect)
+    if result is None:
+        sys.exit(-69)  # path lost to partner
     device_id = result[1]
     if device_id != 0x12:
         print('bad device_id {}'.format(device_id))
 
     expect = pl3.exit_remote(port)
     pl3.receive_response(port, expect=expect)
+
+#    pl3.send_cmd(port, [0x08, 0x01])  # sends back long message 00
+#    pl3.receive_response(port, expect=255)
+
+#    pl3.send_cmd(port, [0x08, 0x01])  # sends back long message 00
+#    pl3.receive_response(port, expect=255)
 
     expect = pl3.set_mode(port, pl3.MODE_RANGE)
     pl3.receive_response(port, expect=expect)
