@@ -562,7 +562,7 @@ def receive_message(port, expect=16, timeouts=5):
                             expected -= 1
                             escaped = False
                         else:
-                            msg.append(b)  # test test
+                            msg.append(b)
                             escaped = True
                     else:
                         expected -= 1

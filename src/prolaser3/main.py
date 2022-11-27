@@ -767,7 +767,6 @@ async def pl3_receiver(verbosity=4):
                     messages.append(message)
                     if len(messages) > MAX_MESSAGES:
                         messages = messages[-MAX_MESSAGES:]
-                    #buffer = bytearray()
                     buf_size = 0
         else:
             await asyncio.sleep(0.040)

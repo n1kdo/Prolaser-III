@@ -78,7 +78,7 @@
     }
     div.refresh_radio {
         border: 1px solid black;
-        margin: 0px 50px;
+        margin: 0 50px;
         text-align: left;
     }
     .refresh_radio_label {
@@ -170,7 +170,7 @@
         last_speed = status_data.last_speed;
         messages = status_data.messages;
 
-        if (new_laser_state != laser_state) {
+        if (new_laser_state !== laser_state) {
             laser_state = new_laser_state;
             if (new_laser_state) {
                 update_secs = 1;
@@ -184,9 +184,9 @@
             update_timeout = setTimeout(get_status, 1000);
         }
 
-        document.getElementById("laser_button").style.color = new_laser_state == true ? "red" : "black";
-        document.getElementById("range_mode_button").style.color = laser_mode == 3 ? "red" : "#008";
-        document.getElementById("speed_mode_button").style.color = laser_mode == 0 ? "red" : "#008";
+        document.getElementById("laser_button").style.color = new_laser_state === true ? "red" : "black";
+        document.getElementById("range_mode_button").style.color = laser_mode === 3 ? "red" : "#008";
+        document.getElementById("speed_mode_button").style.color = laser_mode === 0 ? "red" : "#008";
         document.getElementById("current_range").innerHTML = last_range;
         document.getElementById("current_speed").innerHTML = last_speed;
         document.getElementById("timestamp").innerHTML = timestamp;
@@ -266,7 +266,7 @@
         <div class="messages">
             <textarea id="messages_textarea"></textarea>
         </div>
-        <div class="setup"><a href="/setup.html">Setup</a></div>
+        <div class="setup"><a href="setup.html">Setup</a></div>
     </div>
     <div class="right_column">
         <p class="readout" id="current_speed">&nbsp;</p>
@@ -283,7 +283,7 @@
             <input type="radio" name="refresh_radio" id="refresh_radio_5" value="5" onclick="set_refresh(5)"/>
             <label for="refresh_radio_5">5 seconds</label><br>
         </div>
-        <div class="author"><a href="https://www.n1kdo.com" target="_blank">N1KDO</a> 20221102</div>
+        <div class="author"><a href="https://www.n1kdo.com" target="_blank">N1KDO</a> 20221127</div>
     </div>
 </div>
 </body>
