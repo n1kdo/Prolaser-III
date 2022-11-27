@@ -661,7 +661,7 @@ async def serve_http_client(reader, writer):
                     try:
                         os.remove(newname)
                     except OSError:
-                        pass  # swallow exception.  TODO perhaps test first.
+                        pass  # swallow exception.
                     try:
                         os.rename(filename, newname)
                         http_status = 200
@@ -821,6 +821,8 @@ async def main():
 
     if upython:
         last_pressed = button.value() == 0
+    else:
+        last_pressed = False
 
     while True:
         if upython:
