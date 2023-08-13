@@ -2,10 +2,12 @@
 
 This code interacts with a Kustom Signals ProLaser III speed lidar unit.
 
-It reads speed packets from the lidar and reports them to a web app.
+It reads speed packets from the lidar gun and reports them to a web app.
 
-I re-used the same electronic design that I used for the [Ham-IV Rotator 
-Controller-Controller](https://github.com/n1kdo/rotator-controller-controller).  
+The code runs on MicroPython (Raspberry Pi Pico-W) as well as good-old-fashioned
+desktop Python.  For desktop Python, this code requires the PySerial library.
 
-This also uses a lot of the same software.  
+The ProLaser III serial protocols were all reverse-engineered, I'm sure what
+I have is not the complete list.  
 
+This remains a work in progress.  Comments and input are welcome.
