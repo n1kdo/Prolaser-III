@@ -2,6 +2,8 @@
 
 This code interacts with a Kustom Signals ProLaser III speed lidar unit.
 
+![](pl3-web.png)
+
 It reads speed packets from the lidar gun and reports them to a web app.
 
 The code runs on MicroPython (Raspberry Pi Pico-W) as well as good-old-fashioned
