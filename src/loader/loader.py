@@ -3,8 +3,9 @@ __author__ = 'J. B. Otterson'
 __copyright__ = 'Copyright 2022, J. B. Otterson N1KDO.'
 
 import os
-import pyboard
+import sys
 import serial
+from pyboard import Pyboard, PyboardError
 from serial.tools.list_ports import comports
 BAUD_RATE = 115200
 
@@ -57,7 +58,11 @@ def put_file(filename, target):
 
 
 def load_device(port):
-    target = pyboard.Pyboard(port, BAUD_RATE)
+    try:
+        target = Pyboard(port, BAUD_RATE)
+    except PyboardError:
+        print(f'Cannot connect to device on {port}, is that port in use?')
+        sys.exit(1)
     target.enter_raw_repl()
     for file in FILES_LIST:
         put_file(file, target)
@@ -78,20 +83,23 @@ def load_device(port):
 
 
 def main():
-    print('Disconnect the Pico-W if it is connected.')
-    input('(press enter to continue...)')
-    ports_1 = get_ports_list()
-    print('Detected serial ports: ' + ' '.join(ports_1))
-    print('\nConnect the Pico-W to USB port.')
-    input('(press enter to continue...)')
-    ports_2 = get_ports_list()
-    print('Detected serial ports: ' + ' '.join(ports_2))
+    if len(sys.argv) == 2:
+        picow_port = sys.argv[1]
+    else:
+        print('Disconnect the Pico-W if it is connected.')
+        input('(press enter to continue...)')
+        ports_1 = get_ports_list()
+        print('Detected serial ports: ' + ' '.join(ports_1))
+        print('\nConnect the Pico-W to USB port. Wait for the USB connected sound.')
+        input('(press enter to continue...)')
+        ports_2 = get_ports_list()
+        print('Detected serial ports: ' + ' '.join(ports_2))
 
-    picow_port = None
-    for port in ports_2:
-        if port not in ports_1:
-            picow_port = port
-            break
+        picow_port = None
+        for port in ports_2:
+            if port not in ports_1:
+                picow_port = port
+                break
 
     if picow_port is None:
         print('Could not identify Pico-W communications port.  Exiting.')
